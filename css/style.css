@@ -583,7 +583,77 @@ table.data-table .btn-sm {
 
 @media (max-width: 900px) {
   .scanner-grid {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  /* Su mobile, mostra subito il risultato in alto se c'è una scansione */
+  #scannerResultContainer {
+    order: 2;
+  }
+
+  .scanner-video-box {
+    min-height: 190px !important;
+    max-height: 220px !important;
+    border-width: 2px;
+  }
+
+  #reader video {
+    max-height: 215px !important;
+    object-fit: cover !important;
+  }
+
+  /* Rendi collassabili o compatte le barre di ricerca manuale per risparmiare spazio */
+  .scanner-manual-box,
+  #participantSelectBox {
+    margin-top: 0.5rem !important;
+    padding: 0.6rem !important;
+  }
+
+  .scanner-manual-box label,
+  #participantSelectBox label {
+    font-size: 0.75rem !important;
+    margin-bottom: 0.2rem !important;
+  }
+
+  .scanner-manual-box input,
+  #participantSelectBox select {
+    padding: 0.45rem !important;
+    font-size: 0.85rem !important;
+  }
+
+  .card {
+    padding: 1rem 0.75rem !important;
+  }
+
+  .card-header {
+    margin-bottom: 0.75rem !important;
+  }
+
+  .card-title {
+    font-size: 1.2rem !important;
+  }
+
+  .card-subtitle {
+    font-size: 0.78rem !important;
+  }
+
+  /* Risultato scansione compatto per vederlo a colpo d'occhio senza scroll */
+  .scanner-result-card {
+    padding: 1rem !important;
+    margin-top: 0.25rem !important;
+  }
+
+  .scanner-result-card h2 {
+    font-size: 1.1rem !important;
+  }
+
+  .scanner-result-details {
+    margin-top: 0.6rem !important;
+    padding-top: 0.6rem !important;
+    font-size: 0.85rem !important;
+    line-height: 1.4 !important;
   }
 }
 

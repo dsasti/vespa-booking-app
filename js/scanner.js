@@ -729,28 +729,32 @@ class VespaScanner {
     var gadgetLine = "";
     if (p && displayMode === "GADGET") {
       var taglia = p.tagliaTshirt || "?";
-      gadgetLine = "<p style='font-size:1.35rem;color:#B91C1C;margin-top:.6rem;background:#FEE2E2;padding:.6rem .9rem;border-radius:8px;border:2px solid #FCA5A5;'>" +
-        "<strong>\uD83D\uDC55 TAGLIA DA CONSEGNARE: <span style='font-size:1.6rem;letter-spacing:2px;'>" + taglia + "</span></strong></p>";
+      gadgetLine = "<div style='font-size:1.2rem;color:#B91C1C;margin-top:.4rem;background:#FEE2E2;padding:.4rem .7rem;border-radius:8px;border:2px solid #FCA5A5;text-align:center;'>" +
+        "<strong>👕 TAGLIA: <span style='font-size:1.5rem;letter-spacing:1px;'>" + taglia + "</span></strong></div>";
     }
 
     var detailsHtml = "";
     if (p) {
       detailsHtml =
-        "<div style='margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid #cbd5e1;text-align:left;font-size:.95rem;line-height:1.5;'>" +
-          "<p><strong>Partecipante:</strong> " + p.cognome + " " + p.nome + "</p>" +
-          "<p><strong>Vespa Club:</strong> " + p.vespaClub + " (Tessera VCI: " + p.tesseraVci + ")</p>" +
-          "<p><strong>Vespa:</strong> " + p.modelloVespa + " (" + p.annoVespa + ")</p>" +
-          "<p><strong>Pacchetto Raduno:</strong> " + p.modalitaPartecipazione + "</p>" +
+        "<div class='scanner-result-details' style='margin-top:0.6rem;padding-top:0.6rem;border-top:1px solid #cbd5e1;text-align:left;font-size:.9rem;line-height:1.4;'>" +
+          "<p style='margin:0.15rem 0;'><strong>👤 Partecipante:</strong> " + p.cognome + " " + p.nome + "</p>" +
+          "<p style='margin:0.15rem 0;'><strong>🛵 Vespa Club:</strong> " + p.vespaClub + " (VCI: " + p.tesseraVci + ")</p>" +
+          "<p style='margin:0.15rem 0;'><strong>📦 Pacchetto:</strong> " + p.modalitaPartecipazione + "</p>" +
           gadgetLine +
         "</div>";
     }
 
     container.innerHTML =
-      "<div style='padding:2rem;background:" + bg + ";border:2px solid " + border + ";border-radius:16px;box-shadow:0 4px 6px -1px rgba(0,0,0,.05);'>" +
-        "<h2 style='color:" + border + ";font-size:1.3rem;font-weight:900;margin:0;'>" + message + "</h2>" +
+      "<div class='scanner-result-card' style='padding:1rem 1.25rem;background:" + bg + ";border:2px solid " + border + ";border-radius:14px;box-shadow:0 4px 6px -1px rgba(0,0,0,.05);'>" +
+        "<h2 style='color:" + border + ";font-size:1.15rem;font-weight:900;margin:0;line-height:1.3;'>" + message + "</h2>" +
         detailsHtml +
-        "<p style='margin-top:1.25rem;font-size:.8rem;color:#64748b;font-style:italic;'>Banco [" + displayMode + "] attivo. Pronto per il prossimo pass...</p>" +
+        "<div style='margin-top:0.5rem;font-size:.75rem;color:#64748b;font-style:italic;'>Banco [" + displayMode + "] attivo. Pronto per il prossimo pass...</div>" +
       "</div>";
+
+    // Su schermi piccoli porta delicatamente in vista il risultato se necessario
+    if (window.innerWidth <= 900) {
+      container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
 
     var manualInput = document.getElementById("scannerManualInput");
     if (manualInput) { manualInput.value = ""; manualInput.focus(); }
