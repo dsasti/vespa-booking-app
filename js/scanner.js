@@ -75,17 +75,17 @@ class VespaScanner {
     controls.id = "cameraControlsContainer";
     controls.className = "camera-controls-bar";
     controls.innerHTML =
-      "<div style='display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;'>" +
+      "<div style='display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.4rem;'>" +
         "<button type='button' class='camera-btn camera-btn-start' id='btnToggleCamera'>" +
           "📷 <span>Avvia Fotocamera</span>" +
         "</button>" +
         "<button type='button' class='camera-btn camera-btn-flip' id='btnFlipCamera' style='display:none;' title='Cambia Fotocamera (Fronte/Retro)'>" +
-          "🔄 <span>Inverti</span>" +
+          "🔄 <span>Gira Fotocamera</span>" +
         "</button>" +
-        "<select id='cameraSelect' style='display:none;' title='Seleziona dispositivo fotocamera'></select>" +
+        "<select id='cameraSelect' style='display:none;padding:0.4rem;border-radius:8px;font-size:0.85rem;' title='Seleziona dispositivo fotocamera'></select>" +
       "</div>" +
-      "<div id='cameraStatusIndicator' style='font-size:0.75rem;color:#94a3b8;font-weight:700;display:flex;align-items:center;gap:0.3rem;'>" +
-        "<span style='display:inline-block;width:8px;height:8px;border-radius:50%;background:#94a3b8;'></span> Standby Penna Ottica" +
+      "<div id='cameraStatusIndicator' style='font-size:0.8rem;color:#94a3b8;font-weight:700;display:flex;align-items:center;gap:0.35rem;'>" +
+        "<span style='display:inline-block;width:9px;height:9px;border-radius:50%;background:#94a3b8;'></span> Tocca [Avvia Fotocamera] per inquadrare QR o usa penna ottica" +
       "</div>";
 
     // Inserisci i comandi subito dopo il box del reader
@@ -128,18 +128,15 @@ class VespaScanner {
       });
     }
 
-    // Su smartphone/tablet avvia automaticamente la fotocamera se l'utente è pronto
-    var isMobileOrTablet = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-                           (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
-    if (isMobileOrTablet) {
-      // Tenta avvio automatico silenzioso; se le policy del browser richiedono interazione utente, il pulsante è pronto
+    // Se il reader è visibile, prova ad avviare automaticamente
+    if (readerDiv.offsetParent !== null) {
       setTimeout(function() {
         if (!self.isScanning) {
           self.startScanner().catch(function(e) {
-            console.log("[VespaScanner] Avvio automatico fotocamera richiede tocco utente:", e.message || e);
+            console.log("[VespaScanner] Avvio automatico fotocamera (richiede tocco manuale):", e);
           });
         }
-      }, 500);
+      }, 300);
     }
   }
 
@@ -147,8 +144,14 @@ class VespaScanner {
     var readerDiv = document.getElementById("reader");
     if (!readerDiv) return;
 
+    // Se l'elemento è ancora nascosto (es. pannello chiuso con display:none)
+    if (readerDiv.offsetParent === null) {
+      console.log("[VespaScanner] readerDiv nascosto, rinvio avvio");
+      return;
+    }
+
     if (typeof Html5Qrcode === "undefined") {
-      this.updateCameraStatus("⚠️ Modulo Html5Qrcode non caricato", "#f59e0b");
+      this.updateCameraStatus("⚠️ Libreria scansione non caricata. Ricarica la pagina.", "#f59e0b");
       return;
     }
 
@@ -157,7 +160,7 @@ class VespaScanner {
     var flipBtn = document.getElementById("btnFlipCamera");
     var camSelect = document.getElementById("cameraSelect");
 
-    // Se era già in scansione, ferma prima
+    // Se già attivo, ferma prima
     if (this.isScanning && this.html5QrCode) {
       try {
         await this.html5QrCode.stop();
@@ -166,78 +169,65 @@ class VespaScanner {
       this.isScanning = false;
     }
 
-    this.updateCameraStatus("⏳ Connessione fotocamera...", "#38bdf8");
+    this.updateCameraStatus("⏳ Richiesta autorizzazione fotocamera...", "#38bdf8");
 
     try {
       if (!this.html5QrCode) {
         this.html5QrCode = new Html5Qrcode("reader");
       }
 
-      // Enumerazione fotocamere disponibili
-      try {
-        var devices = await Html5Qrcode.getCameras();
-        if (devices && devices.length) {
-          this.availableCameras = devices;
-          if (camSelect) {
-            camSelect.innerHTML = devices.map(function(d, i) {
-              return "<option value='" + d.id + "'>" + (d.label || ("Camera " + (i + 1))) + "</option>";
-            }).join("");
-            if (devices.length > 1) {
-              camSelect.style.display = "inline-block";
-              if (flipBtn) flipBtn.style.display = "inline-flex";
-            }
-          }
-        }
-      } catch(devErr) {
-        console.warn("[VespaScanner] Enumerazione telecamere:", devErr);
-      }
-
-      // Configurazione ottimale per lettura veloce QR da smartphone e PC
-      var qrboxFunction = function(viewfinderWidth, viewfinderHeight) {
-        var minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-        var qrboxEdge = Math.floor(minEdge * 0.75);
-        return {
-          width: Math.max(qrboxEdge, 200),
-          height: Math.max(qrboxEdge, 200)
-        };
-      };
+      // Mostra pulsante flip/inverti fotocamera
+      if (flipBtn) flipBtn.style.display = "inline-flex";
 
       var scanConfig = {
         fps: 15,
-        qrbox: qrboxFunction,
-        aspectRatio: 1.0,
-        formatsToSupport: [0] // Supporta QR Code e formati barcode principali
+        qrbox: function(viewfinderWidth, viewfinderHeight) {
+          var minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+          var qrboxEdge = Math.floor(minEdge * 0.75);
+          return {
+            width: Math.max(qrboxEdge, 200),
+            height: Math.max(qrboxEdge, 200)
+          };
+        },
+        aspectRatio: 1.0
       };
 
-      // Modalità di selezione telecamera: ID specifico > facingMode environment/user
-      var cameraSpec = null;
+      var cameraConfig;
       if (preferredCameraId) {
-        cameraSpec = { deviceId: { exact: preferredCameraId } };
+        cameraConfig = { deviceId: { exact: preferredCameraId } };
       } else if (this.selectedCameraId) {
-        cameraSpec = { deviceId: { exact: this.selectedCameraId } };
-      } else if (this.availableCameras && this.availableCameras.length === 1) {
-        cameraSpec = this.availableCameras[0].id;
+        cameraConfig = { deviceId: { exact: this.selectedCameraId } };
       } else {
-        cameraSpec = { facingMode: this.currentFacingMode || "environment" };
+        cameraConfig = { facingMode: this.currentFacingMode || "environment" };
       }
 
-      await this.html5QrCode.start(
-        cameraSpec,
-        scanConfig,
-        function(decodedText) {
-          // Debounce rapido per evitare doppi bip sullo stesso codice
-          var now = Date.now();
-          if (decodedText === self.lastScannedCode && (now - self.lastScanTime) < 2500) {
-            return;
-          }
-          self.lastScannedCode = decodedText;
-          self.lastScanTime = now;
-          self.onQrCodeScanned(decodedText);
-        },
-        function() {
-          // Frame senza QR, normale durante la ricerca
+      var onScanSuccess = function(decodedText) {
+        var now = Date.now();
+        if (decodedText === self.lastScannedCode && (now - self.lastScanTime) < 2500) {
+          return;
         }
-      );
+        self.lastScannedCode = decodedText;
+        self.lastScanTime = now;
+        self.onQrCodeScanned(decodedText);
+      };
+
+      try {
+        await this.html5QrCode.start(
+          cameraConfig,
+          scanConfig,
+          onScanSuccess,
+          function() {}
+        );
+      } catch (firstErr) {
+        console.warn("[VespaScanner] Primo tentativo camera fallito, provo fallback:", firstErr);
+        // Fallback: se environment fallisce (es. webcam PC), prova con facingMode generico o user
+        await this.html5QrCode.start(
+          { facingMode: (self.currentFacingMode === "environment" ? "user" : "environment") },
+          scanConfig,
+          onScanSuccess,
+          function() {}
+        );
+      }
 
       this.isScanning = true;
 
@@ -246,28 +236,35 @@ class VespaScanner {
         toggleBtn.innerHTML = "⏹ <span>Ferma Fotocamera</span>";
       }
 
-      this.updateCameraStatus("🟢 Fotocamera ATTIVA (Inquadra QR)", "#4ade80");
+      this.updateCameraStatus("🟢 Fotocamera ATTIVA (Inquadra il QR Code)", "#22c55e");
 
-      if (camSelect && this.selectedCameraId) {
-        camSelect.value = this.selectedCameraId;
-      }
+      // Popola asincronamente la lista telecamere se disponibile
+      Html5Qrcode.getCameras().then(function(devices) {
+        if (devices && devices.length > 1 && camSelect) {
+          self.availableCameras = devices;
+          camSelect.innerHTML = devices.map(function(d, i) {
+            return "<option value='" + d.id + "'>" + (d.label || ("Camera " + (i + 1))) + "</option>";
+          }).join("");
+          camSelect.style.display = "inline-block";
+        }
+      }).catch(function() {});
 
     } catch(err) {
-      console.error("[VespaScanner] Errore startScanner:", err);
+      console.error("[VespaScanner] Errore avvio fotocamera:", err);
       this.isScanning = false;
 
-      var errMsg = err.message || err.name || "Accesso negato";
-      if (/NotAllowedError|Permission/i.test(errMsg)) {
-        this.updateCameraStatus("❌ Permesso fotocamera negato nel browser", "#f87171");
+      var errMsg = (err && err.message) ? err.message : String(err);
+      if (/NotAllowedError|Permission|denied/i.test(errMsg)) {
+        this.updateCameraStatus("❌ Permesso negato. Tocca l'icona lucchetto 🔒 nella barra del browser e consenti Fotocamera.", "#ef4444");
       } else if (/NotFoundError|DevicesNotFoundError/i.test(errMsg)) {
-        this.updateCameraStatus("ℹ️ Nessuna fotocamera rilevata (usa penna ottica)", "#94a3b8");
+        this.updateCameraStatus("ℹ️ Nessuna fotocamera trovata. Usa penna ottica o tastiera.", "#94a3b8");
       } else {
-        this.updateCameraStatus("⚠️ Errore fotocamera (" + errMsg + ")", "#fca5a5");
+        this.updateCameraStatus("⚠️ Tocca [Avvia Fotocamera] per autorizzare l'uso della fotocamera.", "#f59e0b");
       }
 
       if (toggleBtn) {
         toggleBtn.className = "camera-btn camera-btn-start";
-        toggleBtn.innerHTML = "📷 <span>Riprova Fotocamera</span>";
+        toggleBtn.innerHTML = "📷 <span>Avvia Fotocamera</span>";
       }
     }
   }

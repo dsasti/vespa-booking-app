@@ -263,9 +263,14 @@
         if (window.vespaScanner.populateClubDropdown) {
           window.vespaScanner.populateClubDropdown();
         }
-        // Se disponibile e su mobile/tablet, assicura avvio fotocamera all'attivazione del banco
+        // Se disponibile, crea controlli e avvia fotocamera quando si seleziona il giorno
         if (window.vespaScanner.setupCameraControlsUI) {
           window.vespaScanner.setupCameraControlsUI();
+        }
+        if (window.vespaScanner.startScanner && !window.vespaScanner.isScanning) {
+          setTimeout(function() {
+            window.vespaScanner.startScanner().catch(function() {});
+          }, 150);
         }
       }
     }

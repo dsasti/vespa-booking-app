@@ -313,6 +313,11 @@
         if (typeof window.vespaScanner.setupCameraControlsUI === 'function') {
           window.vespaScanner.setupCameraControlsUI();
         }
+        if (typeof window.vespaScanner.startScanner === 'function' && !window.vespaScanner.isScanning) {
+          setTimeout(function() {
+            window.vespaScanner.startScanner().catch(function() {});
+          }, 150);
+        }
         var inp = document.getElementById('scannerManualInput');
         if (inp) { inp.value = ''; inp.focus(); }
         var res = document.getElementById('scannerResultContainer');
