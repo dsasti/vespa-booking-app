@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vespa Club Asti - Banco Accettazione Presenze</title>
+  <meta name="description" content="Banco Accettazione Presenze — Vespa Club Asti A.s.D.">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://unpkg.com/html5-qrcode"></script>
+
+  <style>
+    /* ── Selettore Giorno (identico a pasti.html) ── */
+    .day-selector {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      justify-content: center;
+    }
+    .day-btn {
+      flex: 1;
+      max-width: 220px;
+      padding: 0.9rem 1rem;
+      border: 2.5px solid transparent;
+      border-radius: 14px;
+      font-size: 1rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: var(--bg-light, #F8FAFC);
+      color: var(--text-muted, #64748B);
+      letter-spacing: 0.02em;
+    }
+    .day-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+
+    .day-btn.active-sabato {
+      background: linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%);
+      color: #FFF; border-color: #7C3AED;
+      box-shadow: 0 6px 18px rgba(124,58,237,0.45);
+    }
+    .day-btn.active-domenica {
+      background: linear-gradient(135deg, #0369A1 0%, #0284C7 100%);
+      color: #FFF; border-color: #0369A1;
+      box-shadow: 0 6px 18px rgba(3,105,161,0.45);
+    }
+
+    /* ── Banner giorno attivo ── */
+    .active-day-banner {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.65rem 1rem;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      margin-bottom: 1.25rem;
+      background: #F1F5F9;
+      color: #64748B;
+      border: 1.5px solid #CBD5E1;
+    }
+    .active-day-banner.sabato  { background:#F5F3FF; color:#5B21B6; border-color:#C4B5FD; }
+    .active-day-banner.domenica{ background:#E0F2FE; color:#075985; border-color:#7DD3FC; }
+
+    .banner-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%; background: #CBD5E1; flex-shrink: 0;
+    }
+    .active-day-banner.sabato   .banner-dot { background:#7C3AED; animation: pulse-dot 1.5s infinite; }
+    .active-day-banner.domenica .banner-dot { background:#0369A1; animation: pulse-dot 1.5s infinite; }
+
+    @keyframes pulse-dot {
+      0%,100%{ opacity:1; transform:scale(1); }
+      50%    { opacity:0.55; transform:scale(1.35); }
+    }
+
+    /* ── Scanner panel hidden until day is selected ── */
+    #scannerPanel { display: none; }
+    #scannerPanel.visible { display: block; }
+
+    /* ── Prompt iniziale ── */
+    #initialPrompt {
+      text-align: center; padding: 3rem 1.5rem;
+      color: var(--text-muted, #64748B);
+      border: 2px dashed #CBD5E1; border-radius: 16px;
+    }
+  </style>
+</head>
+<body data-page-type="ACCETTAZIONE">
+
+  <nav class="navbar navbar-accettazione">
+    <div class="brand brand-accettazione" style="cursor:default;">
+      <img src="https://primary.jwwb.nl/public/s/q/g/temp-ycombtvaxsaviqalrdpe/nuovo-frecce-high.png" alt="Vespa Club Asti Logo" class="brand-logo">
+      <span>VESPA CLUB ASTI A.s.D.</span>
+      <span class="brand-badge brand-badge-accettazione" id="navBadge">🎫 BANCO ACCETTAZIONE</span>
+    </div>
+  </nav>
+
+  <main class="container">
+    <div class="card">
+
+      <!-- STEP 1: Selezione Giorno -->
+      <div class="day-selector">
+        <button class="day-btn" id="btnSabato"   onclick="window.accettazioneApp.selectDay('SABATO')">🌙 Sabato</button>
+        <button class="day-btn" id="btnDomenica" onclick="window.accettazioneApp.selectDay('DOMENICA')">☀️ Domenica</button>
+      </div>
+
+      <!-- Banner giorno attivo -->
+      <div class="active-day-banner" id="activeDayBanner">
+        <span class="banner-dot"></span>
+        <span id="bannerText">Seleziona il giorno di accettazione per iniziare</span>
+      </div>
+
+      <!-- STEP 2: Scanner (visibile dopo scelta giorno) -->
+      <div id="scannerPanel">
+        <div class="scanner-grid">
+          <div>
+            <div class="scanner-video-box">
+              <div id="reader"></div>
+            </div>
+
+            <!-- Barra ricerca / lettore ottico -->
+            <div style="margin-top:1.5rem; background:#F8FAFC; padding:1rem; border-radius:12px; border:1px solid var(--bg-card-border);">
+              <label for="scannerManualInput">Ricerca Istantanea (ID, Cognome o Nome Vespa Club per Accettazione di Gruppo)</label>
+              <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
+                <input type="text" id="scannerManualInput" autofocus
+                  placeholder="Es. VCA-2026-1001, ROSSI oppure 'Vespa Club Milano'"
+                  onkeydown="if(event.key === 'Enter') window.accettazioneApp.handleSearchOrScan(this.value)">
+                <button type="button" class="btn btn-secondary" id="scannerManualSearchBtn"
+                  onclick="window.accettazioneApp.handleSearchOrScan(document.getElementById('scannerManualInput').value)">🔍 Cerca</button>
+              </div>
+              <small style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:0.35rem;">
+                💡 Se inserisci il nome di un <strong>Vespa Club</strong> si aprirà la schermata di <strong>accettazione di gruppo</strong> con l'elenco di tutti gli iscritti al club.
+              </small>
+            </div>
+
+            <!-- Lista partecipanti singoli -->
+            <div id="participantSelectBox" style="margin-top:1rem; background:#EFF6FF; padding:1rem; border-radius:12px; border:1px solid #BFDBFE;">
+              <label for="participantSelect" style="color:var(--vespa-blue-dark); font-weight:700; font-size:0.85rem; display:block; margin-bottom:0.4rem;">
+                👤 Oppure seleziona partecipante singolo dall'elenco:
+              </label>
+              <select id="participantSelect" style="width:100%; padding:0.6rem; border-radius:8px; border:1px solid #93C5FD; font-size:0.9rem;">
+                <option value="">-- Caricamento lista partecipanti... --</option>
+              </select>
+            </div>
+
+            <!-- Lista Vespa Club per accettazione di gruppo -->
+            <div id="clubSelectBox" style="margin-top:1rem; background:#FAF5FF; padding:1rem; border-radius:12px; border:1px solid #E9D5FF;">
+              <label for="clubSelect" style="color:#6B21A8; font-weight:700; font-size:0.85rem; display:block; margin-bottom:0.4rem;">
+                🛵 Oppure seleziona Vespa Club per Accettazione di Gruppo:
+              </label>
+              <select id="clubSelect" style="width:100%; padding:0.6rem; border-radius:8px; border:1px solid #D8B4FE; font-size:0.9rem;"
+                onchange="if(this.value) window.accettazioneApp.handleSearchOrScan(this.value)">
+                <option value="">-- Seleziona un Vespa Club --</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Area risultato -->
+          <div id="scannerResultContainer">
+            <div style="text-align:center; padding:3rem 1.5rem; color:var(--text-muted); border:2px dashed #cbd5e1; border-radius:16px;">
+              <h3 id="resultPlaceholderText">Inquadra il QR Pass o scrivi il codice prenotazione a sinistra</h3>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 3: Accettazione di Gruppo per Vespa Club -->
+      <div id="groupAcceptanceView" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; margin-bottom:1.25rem; padding-bottom:1rem; border-bottom:2px solid #E2E8F0;">
+          <div>
+            <div style="font-size:0.8rem; font-weight:800; color:var(--vespa-blue); text-transform:uppercase; letter-spacing:1px;">Accettazione di Gruppo per Delegazione</div>
+            <h2 id="groupClubTitle" style="margin:0.2rem 0; font-size:1.4rem; color:var(--vespa-blue-dark); font-weight:900;">🛵 Vespa Club</h2>
+            <p id="groupClubStats" style="margin:0; font-size:0.85rem; color:var(--text-muted);"></p>
+          </div>
+          <button type="button" class="btn btn-primary" onclick="window.accettazioneApp.closeGroupView()" style="padding:0.7rem 1.3rem; font-weight:800; display:flex; align-items:center; gap:0.5rem;">
+            ⬅️ Torna ad Accettazione <span id="groupDayBackLabel"></span>
+          </button>
+        </div>
+
+        <div id="groupMembersList" style="display:flex; flex-direction:column; gap:0.75rem;">
+          <!-- Generato dinamicamente -->
+        </div>
+
+        <div style="margin-top:1.5rem; padding:1.2rem; background:#F8FAFC; border-radius:12px; border:1px solid #E2E8F0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+          <div style="font-size:0.85rem; color:var(--text-muted);">
+            ℹ️ Smarca i partecipanti presenti. Una volta terminata l'accettazione del club, clicca sul pulsante per tornare alla scansione dei pass.
+          </div>
+          <button type="button" class="btn btn-primary" onclick="window.accettazioneApp.closeGroupView()" style="padding:0.75rem 1.5rem; font-weight:800;">
+            ✅ Concludi Accettazione di Gruppo
+          </button>
+        </div>
+      </div>
+
+      <!-- Prompt iniziale -->
+      <div id="initialPrompt">
+        <div style="font-size:3.5rem; margin-bottom:0.75rem;">🎫</div>
+        <h3 style="color:#334155; font-weight:800; margin-bottom:0.5rem;">Scegli il giorno di accettazione</h3>
+        <p style="font-size:0.9rem;">Seleziona <strong>Sabato</strong> o <strong>Domenica</strong>.<br>
+        Il giorno rimane attivo: puoi sparare tutti i partecipanti in sequenza senza doverlo riselezionare.</p>
+      </div>
+
+    </div>
+  </main>
+
+  <script src="js/packages.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/scanner.js"></script>
+
+  <script>
+  /**
+   * AccettazioneApp — selettore giorno con mode persistente
+   * Imposta vespaScanner.mode su ACCETTAZIONE_SABATO o ACCETTAZIONE_DOMENICA.
+   * Il giorno rimane attivo per tutta la sessione (nessun reset automatico).
+   */
+  (function() {
+    var currentDay = null;
+    var currentClubName = null;
+
+    function selectDay(day) {
+      currentDay = day;
+      var mode = (day === 'SABATO') ? 'ACCETTAZIONE_SABATO' : 'ACCETTAZIONE_DOMENICA';
+
+      // Aggiorna pulsanti
+      document.getElementById('btnSabato').className   = 'day-btn' + (day === 'SABATO'   ? ' active-sabato'   : '');
+      document.getElementById('btnDomenica').className = 'day-btn' + (day === 'DOMENICA' ? ' active-domenica' : '');
+
+      // Aggiorna banner
+      var banner = document.getElementById('activeDayBanner');
+      banner.className = 'active-day-banner ' + (day === 'SABATO' ? 'sabato' : 'domenica');
+      document.getElementById('bannerText').textContent =
+        (day === 'SABATO' ? '🌙 ACCETTAZIONE SABATO attiva' : '☀️ ACCETTAZIONE DOMENICA attiva') +
+        ' — il giorno rimane selezionato per tutta la sessione';
+
+      // Aggiorna nav badge
+      var badge = document.getElementById('navBadge');
+      badge.textContent = day === 'SABATO' ? '🎫 ACCETTAZIONE (SABATO)' : '🎫 ACCETTAZIONE (DOMENICA)';
+
+      // Mostra scanner, nascondi prompt e group view
+      document.getElementById('scannerPanel').classList.add('visible');
+      document.getElementById('scannerPanel').style.display = 'block';
+      document.getElementById('groupAcceptanceView').style.display = 'none';
+      document.getElementById('initialPrompt').style.display = 'none';
+
+      // Imposta mode scanner (persistente)
+      if (window.vespaScanner) {
+        window.vespaScanner.mode = mode;
+        var inp = document.getElementById('scannerManualInput');
+        if (inp) { inp.value = ''; inp.focus(); }
+        // Reset result
+        var res = document.getElementById('scannerResultContainer');
+        if (res) {
+          var icon = day === 'SABATO' ? '🌙' : '☀️';
+          var label = day === 'SABATO' ? 'Sabato' : 'Domenica';
+          res.innerHTML =
+            "<div style='text-align:center;padding:3rem 1.5rem;color:var(--text-muted);border:2px dashed #cbd5e1;border-radius:16px;'>" +
+            "<div style='font-size:2.5rem;margin-bottom:0.5rem;'>" + icon + " 🎫</div>" +
+            "<h3>Pronto per Accettazione " + label + "</h3>" +
+            "<p style='font-size:0.85rem;margin-top:0.3rem;'>Spara il QR, cerca il cognome oppure digita il nome di un <strong>Vespa Club</strong> per l'accettazione di gruppo.</p>" +
+            "</div>";
+        }
+        if (window.vespaScanner.populateParticipantDropdown) {
+          window.vespaScanner.populateParticipantDropdown();
+        }
+        if (window.vespaScanner.populateClubDropdown) {
+          window.vespaScanner.populateClubDropdown();
+        }
+      }
+    }
+
+    // Intercetta la ricerca: se è il nome di un Vespa Club apre l'accettazione di gruppo
+    async function handleSearchOrScan(query) {
+      if (!query || !query.trim()) return;
+      var cleanQuery = query.trim();
+
+      if (window.vespaDB) {
+        await window.vespaDB.ensureInit();
+        var all = await window.vespaDB.getAllRegistrations();
+
+        // 1. Controlla prima se è un ID preciso o una scansione QR
+        var singleMatch = all.find(function(r) {
+          return r.id && r.id.toUpperCase() === cleanQuery.toUpperCase();
+        });
+        if (singleMatch) {
+          if (window.vespaScanner) window.vespaScanner.lookupParticipant(cleanQuery);
+          return;
+        }
+
+        // 2. Se la query corrisponde esattamente al cognome di un partecipante, dai priorità al partecipante singolo
+        var cognomeMatch = all.filter(function(r) {
+          return (r.cognome || '').toUpperCase() === cleanQuery.toUpperCase();
+        });
+        if (cognomeMatch.length === 1 && !cleanQuery.toLowerCase().includes('club') && !cleanQuery.toLowerCase().includes('vespa')) {
+          if (window.vespaScanner) window.vespaScanner.lookupParticipant(cleanQuery);
+          return;
+        }
+
+        // 3. Cerca per nome club (esatto, o se contiene la query normalizzata)
+        var qNorm = cleanQuery.toLowerCase().replace(/^(vespa\s+club|vc)\s+/i, '').trim();
+        var clubMatches = all.filter(function(r) {
+          var club = (r.vespaClub || '').toLowerCase();
+          var clubNorm = club.replace(/^(vespa\s+club|vc)\s+/i, '').trim();
+          return club === cleanQuery.toLowerCase() ||
+                 club.includes(cleanQuery.toLowerCase()) ||
+                 (qNorm.length >= 3 && (clubNorm === qNorm || clubNorm.includes(qNorm)));
+        });
+
+        // Se abbiamo trovato 1 o più partecipanti di questo Vespa Club, apri vista di gruppo!
+        if (clubMatches.length > 0) {
+          var canonicalClubName = clubMatches[0].vespaClub;
+          openGroupView(canonicalClubName, clubMatches);
+          return;
+        }
+      }
+
+      // 3. Fallback standard: ricerca per cognome o ID
+      if (window.vespaScanner) {
+        window.vespaScanner.lookupParticipant(cleanQuery);
+      }
+    }
+
+    function openGroupView(clubName, members) {
+      if (!currentDay) {
+        currentDay = 'SABATO';
+        document.getElementById('btnSabato').className = 'day-btn active-sabato';
+        document.getElementById('activeDayBanner').className = 'active-day-banner sabato';
+        document.getElementById('bannerText').textContent = '🌙 ACCETTAZIONE SABATO attiva — il giorno rimane selezionato per tutta la sessione';
+        document.getElementById('navBadge').textContent = '🎫 ACCETTAZIONE (SABATO)';
+        if (window.vespaScanner) window.vespaScanner.mode = 'ACCETTAZIONE_SABATO';
+      }
+      currentClubName = clubName;
+      document.getElementById('scannerPanel').style.display = 'none';
+      document.getElementById('initialPrompt').style.display = 'none';
+      var gView = document.getElementById('groupAcceptanceView');
+      gView.style.display = 'block';
+
+      var dayLabel = (currentDay === 'DOMENICA') ? 'Domenica' : 'Sabato';
+      document.getElementById('groupDayBackLabel').textContent = '(' + dayLabel + ')';
+      document.getElementById('groupClubTitle').textContent = '🛵 ' + clubName;
+
+      renderGroupMembers(members);
+    }
+
+    function closeGroupView() {
+      document.getElementById('groupAcceptanceView').style.display = 'none';
+      var scannerP = document.getElementById('scannerPanel');
+      scannerP.style.display = 'block';
+      scannerP.classList.add('visible');
+
+      var inp = document.getElementById('scannerManualInput');
+      if (inp) { inp.value = ''; inp.focus(); }
+
+      // Se scanner è presente, aggiorna dropdown partecipanti e club nel caso ci siano stati cambiamenti
+      var clubSel = document.getElementById('clubSelect');
+      if (clubSel) clubSel.value = '';
+      if (window.vespaScanner && window.vespaScanner.populateParticipantDropdown) {
+        window.vespaScanner.populateParticipantDropdown();
+      }
+      if (window.vespaScanner && window.vespaScanner.populateClubDropdown) {
+        window.vespaScanner.populateClubDropdown();
+      }
+    }
+
+    async function reloadGroupView() {
+      if (!currentClubName || !window.vespaDB) return;
+      var all = await window.vespaDB.getAllRegistrations();
+      var members = all.filter(function(r) {
+        return (r.vespaClub || '').trim().toLowerCase() === currentClubName.trim().toLowerCase();
+      });
+      renderGroupMembers(members);
+    }
+
+    function renderGroupMembers(members) {
+      var isSab = (currentDay === 'SABATO');
+      var dayLabel = isSab ? 'Sabato' : 'Domenica';
+      var fieldName = isSab ? 'statoAccettazioneSabato' : 'statoAccettazioneDomenica';
+
+      // FILTRO: rimuovi i partecipanti che non hanno il giorno selezionato incluso nel pacchetto
+      var eligibleMembers = members.filter(function(m) {
+        if (window.VespaPkg) {
+          return isSab ? window.VespaPkg.packageIncludesSabato(m.modalitaPartecipazione) : window.VespaPkg.packageIncludesDomenica(m.modalitaPartecipazione);
+        }
+        var modalita = (m.modalitaPartecipazione || '').toUpperCase();
+        return isSab
+          ? (modalita.includes('SABATO') || modalita.includes('FULL 2 GIORNI') || modalita.includes('COMPLETA'))
+          : (modalita.includes('DOMENICA') || modalita.includes('FULL 2 GIORNI') || modalita.includes('COMPLETA'));
+      });
+
+      eligibleMembers.sort(function(a, b) {
+        return (a.cognome + ' ' + a.nome).localeCompare(b.cognome + ' ' + b.nome);
+      });
+
+      var acceptedCount = eligibleMembers.filter(function(m) { return !!m[fieldName]; }).length;
+      var paidCount = eligibleMembers.filter(function(m) { return m.statoPagamento === 'PAGATO'; }).length;
+
+      document.getElementById('groupClubStats').innerHTML =
+        'Partecipanti presenti per ' + dayLabel + ': <strong>' + eligibleMembers.length + '</strong>' +
+        (members.length !== eligibleMembers.length ? ' <span style="font-size:0.78rem; color:#64748B;">(su ' + members.length + ' iscritti totali al club)</span>' : '') + ' | ' +
+        'Presenze registrate: <strong>' + acceptedCount + '/' + eligibleMembers.length + '</strong> | ' +
+        'Pagati: <strong>' + paidCount + '/' + eligibleMembers.length + '</strong>';
+
+      var container = document.getElementById('groupMembersList');
+
+      if (eligibleMembers.length === 0) {
+        container.innerHTML =
+          "<div style='text-align:center; padding:2.5rem 1rem; color:var(--text-muted); background:#F8FAFC; border:1px dashed #CBD5E1; border-radius:12px;'>" +
+            "<div style='font-size:2rem; margin-bottom:0.5rem;'>ℹ️</div>" +
+            "<strong>Nessun iscritto di questo club ha il " + dayLabel + " incluso nel pacchetto.</strong>" +
+          "</div>";
+        return;
+      }
+
+      container.innerHTML = eligibleMembers.map(function(m) {
+        var isAccepted = !!m[fieldName];
+        var isPaid = (m.statoPagamento === 'PAGATO');
+        var price = m.importoDovuto || (window.VespaDB ? VespaDB.getPriceForMode(m.modalitaPartecipazione) : 55);
+
+        var payBadge = isPaid
+          ? "<span class='badge badge-success' style='padding:0.4rem 0.75rem; font-size:0.85rem; font-weight:800;'>✅ PAGATO</span>"
+          : "<div style='display:flex; align-items:center; gap:0.5rem;'>" +
+              "<span class='badge badge-danger' style='padding:0.4rem 0.75rem; font-size:0.85rem; font-weight:800;'>❌ NON PAGATO (€ " + price + ")</span>" +
+              "<button type='button' class='btn btn-success btn-sm' onclick=\"window.accettazioneApp.markGroupPaid('" + m.id + "')\" style='font-size:0.8rem; font-weight:800; padding:0.35rem 0.65rem; background:#16A34A;'>" +
+                "💶 Segna Pagato" +
+              "</button>" +
+            "</div>";
+
+        var actionBtn = '';
+        if (!isPaid) {
+          actionBtn = "<span style='color:#DC2626; font-size:0.82rem; font-weight:700;'>⚠️ Salda quota prima di accettare</span>";
+        } else if (isAccepted) {
+          actionBtn = "<button type='button' class='btn btn-success' onclick=\"window.accettazioneApp.toggleGroupParticipant('" + m.id + "')\" style='padding:0.5rem 1.1rem; font-size:0.88rem; font-weight:800; background:#16A34A; border:none; display:flex; align-items:center; gap:0.4rem;'>" +
+            "✅ ACCETTATO (" + dayLabel + ")" +
+          "</button>";
+        } else {
+          actionBtn = "<button type='button' class='btn btn-primary' onclick=\"window.accettazioneApp.toggleGroupParticipant('" + m.id + "')\" style='padding:0.5rem 1.1rem; font-size:0.88rem; font-weight:800;'>" +
+            "👉 ACCETTA (" + dayLabel + ")" +
+          "</button>";
+        }
+
+        return "" +
+          "<div style='display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; padding:0.9rem 1.25rem; background:#FFFFFF; border:1.5px solid " + (isAccepted ? '#86EFAC' : '#E2E8F0') + "; border-radius:12px; box-shadow:0 2px 6px rgba(0,0,0,0.04);'>" +
+            "<div style='display:flex; align-items:center; gap:1rem; flex-wrap:wrap;'>" +
+              "<div style='min-width:110px; font-family:monospace; font-weight:900; color:var(--vespa-blue); font-size:0.88rem;'>" + m.id + "</div>" +
+              "<div>" +
+                "<strong style='font-size:1.05rem; color:var(--vespa-blue-dark); text-transform:uppercase;'>" + m.cognome + "</strong> " +
+                "<span style='font-size:1.05rem; font-weight:700; color:#334155;'>" + m.nome + "</span>" +
+                "<div style='font-size:0.8rem; color:var(--text-muted); margin-top:0.2rem;'>" +
+                  (m.modalitaPartecipazione || '').split('-')[0].trim() + " • Vespa: " + (m.modelloVespa || 'N/D') + " (" + (m.annoVespa || '') + ")" +
+                "</div>" +
+              "</div>" +
+            "</div>" +
+            "<div style='display:flex; align-items:center; gap:1rem; flex-wrap:wrap;'>" +
+              payBadge +
+              actionBtn +
+            "</div>" +
+          "</div>";
+      }).join('');
+    }
+
+    async function toggleGroupParticipant(id) {
+      if (!window.vespaDB) return;
+      var record = await window.vespaDB.getById(id);
+      if (!record) return;
+
+      var isSab = (currentDay === 'SABATO');
+      var fieldName = isSab ? 'statoAccettazioneSabato' : 'statoAccettazioneDomenica';
+      var timeField = isSab ? 'accettazioneSabatoTimestamp' : 'accettazioneDomenicaTimestamp';
+      var timeString = new Date().toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' });
+
+      var newVal = !record[fieldName];
+      record[fieldName] = newVal;
+      record[timeField] = newVal ? timeString : null;
+
+      if (record.statoAccettazioneSabato && record.statoAccettazioneDomenica) {
+        record.accettazioneConclusa = true;
+        record.accettazioneTimestamp = timeString;
+      } else {
+        record.accettazioneConclusa = false;
+        record.accettazioneTimestamp = null;
+      }
+
+      await window.vespaDB.saveRegistration(record);
+      try { localStorage.setItem('vespa_db_sync_pulse', Date.now().toString()); } catch(e) {}
+      await reloadGroupView();
+    }
+
+    async function markGroupPaid(id) {
+      if (!window.vespaDB) return;
+      var record = await window.vespaDB.getById(id);
+      if (!record) return;
+
+      var timeString = new Date().toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' });
+      record.statoPagamento = 'PAGATO';
+      record.notePagamento = (record.notePagamento || '') + ' [Pagato in contanti all\'accettazione alle ' + timeString + ']';
+      record.ricevutaPagamentoVerified = true;
+
+      await window.vespaDB.saveRegistration(record);
+      try { localStorage.setItem('vespa_db_sync_pulse', Date.now().toString()); } catch(e) {}
+      await reloadGroupView();
+    }
+
+    window.accettazioneApp = {
+      selectDay: selectDay,
+      handleSearchOrScan: handleSearchOrScan,
+      openGroupView: openGroupView,
+      closeGroupView: closeGroupView,
+      toggleGroupParticipant: toggleGroupParticipant,
+      markGroupPaid: markGroupPaid
+    };
+  })();
+  </script>
+
+  <script>
+  /**
+   * Patch VespaScanner per i nuovi mode ACCETTAZIONE_SABATO / ACCETTAZIONE_DOMENICA.
+   * - ACCETTAZIONE_SABATO   → scrive solo statoAccettazioneSabato
+   * - ACCETTAZIONE_DOMENICA → scrive solo statoAccettazioneDomenica
+   * - forceAcceptance / overrideAcceptance rispettano il giorno selezionato
+   * - Blocca accettazione se il pacchetto non include il giorno selezionato
+   *     FULL SABATO   → rifiuta accettazione domenica
+   *     FULL DOMENICA → rifiuta accettazione sabato
+   *     FULL 2 GIORNI → passa sempre
+   */
+  document.addEventListener('DOMContentLoaded', function() {
+    var waitScanner = setInterval(function() {
+      if (window.vespaScanner) {
+        clearInterval(waitScanner);
+        patchScanner();
+      }
+    }, 50);
+
+    function patchScanner() {
+      var origValidate       = window.vespaScanner.validateAndProcessRegistration.bind(window.vespaScanner);
+      var origForce          = window.vespaScanner.forceAcceptance.bind(window.vespaScanner);
+      var origOverride       = window.vespaScanner.overrideAcceptance.bind(window.vespaScanner);
+      var origRenderPayment  = window.vespaScanner.renderPaymentBlockedFeedback.bind(window.vespaScanner);
+
+      // Re-indirizza onQrCodeScanned tramite handleSearchOrScan per supportare sia QR che nome Vespa Club
+      var origOnQr = window.vespaScanner.onQrCodeScanned.bind(window.vespaScanner);
+      window.vespaScanner.onQrCodeScanned = async function(text) {
+        if (!text) return;
+        if (window.accettazioneApp && window.accettazioneApp.handleSearchOrScan) {
+          await window.accettazioneApp.handleSearchOrScan(text);
+        } else {
+          await origOnQr(text);
+        }
+      };
+
+      /* ── validateAndProcessRegistration ── */
+      window.vespaScanner.validateAndProcessRegistration = async function(p) {
+        var mode = this.mode;
+        if (mode !== 'ACCETTAZIONE_SABATO' && mode !== 'ACCETTAZIONE_DOMENICA') {
+          return origValidate(p);
+        }
+
+        var isSab = (mode === 'ACCETTAZIONE_SABATO');
+        var dayLabel = isSab ? 'Sabato' : 'Domenica';
+        var alreadyDoneField = isSab ? 'statoAccettazioneSabato' : 'statoAccettazioneDomenica';
+
+        if (p[alreadyDoneField]) {
+          this.renderStatusFeedback(
+            '\u26a0\ufe0f GI\u00c0 ACCETTATO (' + dayLabel + '): ' + p.cognome + ' ' + p.nome + ' risulta gi\u00e0 registrato per ' + dayLabel + '.',
+            'warning', p
+          );
+          return;
+        }
+
+        // ── Controllo compatibilità pacchetto / giorno ──────────────────────
+        var includesSab = window.VespaPkg 
+          ? window.VespaPkg.packageIncludesSabato(p.modalitaPartecipazione)
+          : ((p.modalitaPartecipazione || '').toUpperCase().includes('SABATO') || (p.modalitaPartecipazione || '').toUpperCase().includes('FULL 2 GIORNI') || (p.modalitaPartecipazione || '').toUpperCase().includes('COMPLETA'));
+        var includesDom = window.VespaPkg
+          ? window.VespaPkg.packageIncludesDomenica(p.modalitaPartecipazione)
+          : ((p.modalitaPartecipazione || '').toUpperCase().includes('DOMENICA') || (p.modalitaPartecipazione || '').toUpperCase().includes('FULL 2 GIORNI') || (p.modalitaPartecipazione || '').toUpperCase().includes('COMPLETA'));
+
+        if (isSab && !includesSab) {
+          this.renderStatusFeedback(
+            '\u274c PACCHETTO NON INCLUDE SABATO: ' + p.cognome + ' ' + p.nome +
+            ' ha acquistato \u00ab' + (p.modalitaPartecipazione || 'N/D').split('-')[0].trim() + '\u00bb' +
+            ' \u2014 il Sabato non \u00e8 incluso nel pacchetto. Accettazione rifiutata.',
+            'danger', p
+          );
+          return;
+        }
+        if (!isSab && !includesDom) {
+          this.renderStatusFeedback(
+            '\u274c PACCHETTO NON INCLUDE DOMENICA: ' + p.cognome + ' ' + p.nome +
+            ' ha acquistato \u00ab' + (p.modalitaPartecipazione || 'N/D').split('-')[0].trim() + '\u00bb' +
+            ' \u2014 la Domenica non \u00e8 inclusa nel pacchetto. Accettazione rifiutata.',
+            'danger', p
+          );
+          return;
+        }
+        // ────────────────────────────────────────────────────────────────────
+
+        if (p.statoPagamento === 'NON_PAGATO') {
+          this.renderPaymentBlockedFeedback(p);
+          return;
+        }
+
+        var timeString = new Date().toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' });
+
+        if (isSab) {
+          p.statoAccettazioneSabato   = true;
+          p.accettazioneSabatoTimestamp = timeString;
+        } else {
+          p.statoAccettazioneDomenica   = true;
+          p.accettazioneDomenicaTimestamp = timeString;
+        }
+
+        // Segna accettazione globale conclusa solo se entrambi i giorni sono ok
+        if (p.statoAccettazioneSabato && p.statoAccettazioneDomenica) {
+          p.accettazioneConclusa   = true;
+          p.accettazioneTimestamp  = timeString;
+        }
+
+        if (window.vespaDB) await window.vespaDB.saveRegistration(p);
+        try { localStorage.setItem('vespa_db_sync_pulse', Date.now().toString()); } catch(e) {}
+        fetch('/api/participant/update/' + p.id, {
+          method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(p)
+        }).catch(function(){});
+
+        this.renderStatusFeedback(
+          '\u2705 ACCETTAZIONE ' + dayLabel.toUpperCase() + ': ' + p.cognome + ' ' + p.nome + ' \u2014 ingresso ' + dayLabel + ' convalidato.',
+          'success', p
+        );
+      };
+
+      /* ── forceAcceptance (pagato in contanti) — rispetta il giorno attivo ── */
+      window.vespaScanner.forceAcceptance = async function(id) {
+        if (window.vespaDB) await window.vespaDB.ensureInit();
+        // Recupera record aggiornato
+        var _recCheck = (this.currentParticipant && this.currentParticipant.id === id)
+          ? this.currentParticipant : (window.vespaDB ? await window.vespaDB.getById(id) : null);
+        if (_recCheck) {
+          var _isSab2 = (this.mode === 'ACCETTAZIONE_SABATO');
+          var _ok = window.VespaPkg
+            ? (_isSab2 ? window.VespaPkg.packageIncludesSabato(_recCheck.modalitaPartecipazione) : window.VespaPkg.packageIncludesDomenica(_recCheck.modalitaPartecipazione))
+            : (_isSab2
+              ? ((_recCheck.modalitaPartecipazione || '').toUpperCase().includes('SABATO') || (_recCheck.modalitaPartecipazione || '').toUpperCase().includes('FULL 2 GIORNI') || (_recCheck.modalitaPartecipazione || '').toUpperCase().includes('COMPLETA'))
+              : ((_recCheck.modalitaPartecipazione || '').toUpperCase().includes('DOMENICA') || (_recCheck.modalitaPartecipazione || '').toUpperCase().includes('FULL 2 GIORNI') || (_recCheck.modalitaPartecipazione || '').toUpperCase().includes('COMPLETA')));
+          if (!_ok) {
+            var _dl3 = _isSab2 ? 'Sabato' : 'Domenica';
+            this.renderStatusFeedback(
+              '\u274c PACCHETTO NON INCLUDE ' + _dl3.toUpperCase() + ': accettazione per ' + _dl3 + ' rifiutata \u2014 il pacchetto \u00ab' +
+              (_recCheck.modalitaPartecipazione || '').split('-')[0].trim() + '\u00bb non comprende questo giorno.',
+              'danger', _recCheck
+            );
+            return;
+          }
+        }
+        var record = (this.currentParticipant && this.currentParticipant.id === id)
+          ? this.currentParticipant : await window.vespaDB.getById(id);
+        if (!record) return;
+
+        var mode = this.mode;
+        var isSab = (mode === 'ACCETTAZIONE_SABATO');
+        var useDayMode = (mode === 'ACCETTAZIONE_SABATO' || mode === 'ACCETTAZIONE_DOMENICA');
+        var timeString = new Date().toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' });
+
+        record.statoPagamento  = 'PAGATO';
+        record.notePagamento   = (record.notePagamento || '') +
+          ' [Pagato in contanti all\'accettazione alle ' + timeString + ']';
+
+        if (useDayMode) {
+          if (isSab) {
+            record.statoAccettazioneSabato     = true;
+            record.accettazioneSabatoTimestamp = timeString;
+          } else {
+            record.statoAccettazioneDomenica     = true;
+            record.accettazioneDomenicaTimestamp = timeString;
+          }
+          if (record.statoAccettazioneSabato && record.statoAccettazioneDomenica) {
+            record.accettazioneConclusa  = true;
+            record.accettazioneTimestamp = timeString;
+          }
+          var dl = isSab ? 'Sabato' : 'Domenica';
+          var msg = '\u2705 PAGATO & ACCETTATO (' + dl + '): ' + record.cognome + ' ' + record.nome + ' \u2014 ingresso ' + dl + ' convalidato.';
+          if (window.vespaDB) await window.vespaDB.saveRegistration(record);
+          try { localStorage.setItem('vespa_db_sync_pulse', Date.now().toString()); } catch(e) {}
+          this.currentParticipant = record;
+          this.renderStatusFeedback(msg, 'success', record);
+        } else {
+          // fallback originale (mode ACCETTAZIONE generico)
+          return origForce(id);
+        }
+      };
+
+      /* ── overrideAcceptance (sblocca ingresso quota pendente) — rispetta il giorno attivo ── */
+      window.vespaScanner.overrideAcceptance = async function(id) {
+        if (window.vespaDB) await window.vespaDB.ensureInit();
+        var record = (this.currentParticipant && this.currentParticipant.id === id)
+          ? this.currentParticipant : await window.vespaDB.getById(id);
+        if (!record) return;
+
+        var mode = this.mode;
+        var isSab = (mode === 'ACCETTAZIONE_SABATO');
+        var useDayMode = (mode === 'ACCETTAZIONE_SABATO' || mode === 'ACCETTAZIONE_DOMENICA');
+        var timeString = new Date().toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' });
+
+        if (useDayMode) {
+          if (isSab) {
+            record.statoAccettazioneSabato     = true;
+            record.accettazioneSabatoTimestamp = timeString;
+          } else {
+            record.statoAccettazioneDomenica     = true;
+            record.accettazioneDomenicaTimestamp = timeString;
+          }
+          if (record.statoAccettazioneSabato && record.statoAccettazioneDomenica) {
+            record.accettazioneConclusa  = true;
+            record.accettazioneTimestamp = timeString;
+          }
+          record.noteOrganizzatore = (record.noteOrganizzatore || '') +
+            ' [Ingresso sbloccato manualmente (' + (isSab ? 'Sabato' : 'Domenica') + ') alle ' + timeString + ' \u2014 quota ancora da verificare]';
+
+          if (window.vespaDB) await window.vespaDB.saveRegistration(record);
+          try { localStorage.setItem('vespa_db_sync_pulse', Date.now().toString()); } catch(e) {}
+          this.currentParticipant = record;
+          var dl2 = isSab ? 'Sabato' : 'Domenica';
+          this.renderStatusFeedback(
+            '\u26a0\ufe0f INGRESSO ' + dl2.toUpperCase() + ' SBLOCCATO: ' + record.cognome + ' ' + record.nome + ' \u2014 quota ancora da regolarizzare.',
+            'warning', record
+          );
+        } else {
+          return origOverride(id);
+        }
+      };
+
+      /* ── Filtra la lista partecipanti (#participantSelect) in base al giorno attivo ── */
+      window.vespaScanner.populateParticipantDropdown = async function() {
+        var select = document.getElementById("participantSelect");
+        if (!select || !window.vespaDB) return;
+        try {
+          await window.vespaDB.ensureInit();
+          var all = await window.vespaDB.getAllRegistrations();
+          var mode = this.mode;
+          var isSab = (mode === 'ACCETTAZIONE_SABATO');
+          var isDom = (mode === 'ACCETTAZIONE_DOMENICA');
+
+          // Filtra: Sabato mostra tutti i pacchetti con Sabato; Domenica tutti i pacchetti con Domenica
+          if (isSab || isDom) {
+            all = all.filter(function(r) {
+              if (window.VespaPkg) {
+                return isSab ? window.VespaPkg.packageIncludesSabato(r.modalitaPartecipazione) : window.VespaPkg.packageIncludesDomenica(r.modalitaPartecipazione);
+              }
+              var mod = (r.modalitaPartecipazione || '').toUpperCase();
+              if (isSab) {
+                return mod.includes('SABATO') || mod.includes('FULL 2 GIORNI') || mod.includes('COMPLETA');
+              } else {
+                return mod.includes('DOMENICA') || mod.includes('FULL 2 GIORNI') || mod.includes('COMPLETA');
+              }
+            });
+          }
+
+          all.sort(function(a, b) {
+            return (a.cognome + ' ' + a.nome).localeCompare(b.cognome + ' ' + b.nome);
+          });
+
+          var self = this;
+          var dayText = isSab ? 'Sabato' : (isDom ? 'Domenica' : '');
+          var labelText = dayText
+            ? "-- Seleziona partecipante (" + dayText + " - " + all.length + " iscritti) --"
+            : "-- Seleziona partecipante dall'elenco --";
+
+          select.innerHTML = "<option value=\"\">" + labelText + "</option>" +
+            all.map(function(r) {
+              return "<option value=\"" + r.id + "\">" + r.cognome + " " + r.nome + " (" + (r.vespaClub || 'Indipendente') + ") \u2014 " + r.id + "</option>";
+            }).join("");
+
+          select.onchange = function() {
+            if (select.value) {
+              self.lookupParticipant(select.value);
+            }
+          };
+        } catch(e) {
+          console.warn("[VespaScanner] Dropdown not populated:", e);
+        }
+      };
+
+      /* ── Popola e filtra la lista dei Vespa Club (#clubSelect) in base al giorno attivo ── */
+      window.vespaScanner.populateClubDropdown = async function() {
+        var select = document.getElementById("clubSelect");
+        if (!select || !window.vespaDB) return;
+        try {
+          await window.vespaDB.ensureInit();
+          var all = await window.vespaDB.getAllRegistrations();
+          var mode = this.mode;
+          var isSab = (mode === 'ACCETTAZIONE_SABATO');
+          var isDom = (mode === 'ACCETTAZIONE_DOMENICA');
+
+          // Filtra: considera i partecipanti del giorno selezionato
+          if (isSab || isDom) {
+            all = all.filter(function(r) {
+              if (window.VespaPkg) {
+                return isSab ? window.VespaPkg.packageIncludesSabato(r.modalitaPartecipazione) : window.VespaPkg.packageIncludesDomenica(r.modalitaPartecipazione);
+              }
+              var mod = (r.modalitaPartecipazione || '').toUpperCase();
+              return isSab
+                ? (mod.includes('SABATO') || mod.includes('FULL 2 GIORNI') || mod.includes('COMPLETA'))
+                : (mod.includes('DOMENICA') || mod.includes('FULL 2 GIORNI') || mod.includes('COMPLETA'));
+            });
+          }
+
+          // Raggruppa e conta per Vespa Club
+          var clubCounts = {};
+          all.forEach(function(r) {
+            var c = (r.vespaClub || '').trim();
+            if (c) {
+              clubCounts[c] = (clubCounts[c] || 0) + 1;
+            }
+          });
+
+          var clubs = Object.keys(clubCounts).sort(function(a, b) {
+            return a.localeCompare(b, 'it', { sensitivity: 'base' });
+          });
+
+          var dayText = isSab ? 'Sabato' : (isDom ? 'Domenica' : '');
+          var placeholder = dayText
+            ? "-- Seleziona Vespa Club (" + dayText + " - " + clubs.length + " club) --"
+            : "-- Seleziona un Vespa Club --";
+
+          select.innerHTML = "<option value=\"\">" + placeholder + "</option>" +
+            clubs.map(function(c) {
+              var n = clubCounts[c];
+              return "<option value=\"" + c + "\">🛵 " + c + " (" + n + " " + (n === 1 ? 'partecipante' : 'partecipanti') + ")</option>";
+            }).join("");
+        } catch(e) {
+          console.warn("[VespaScanner] Club dropdown not populated:", e);
+        }
+      };
+
+      // Aggiorna subito le liste con i filtri
+      window.vespaScanner.populateParticipantDropdown();
+      window.vespaScanner.populateClubDropdown();
+    }
+  });
+  </script>
+
+</body>
+</html>

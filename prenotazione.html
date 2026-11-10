@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vespa Club Asti - Modulo Prenotazione Online</title>
+  
+  <meta name="description" content="Modulo di prenotazione online ufficiale per il raduno del Vespa Club Asti.">
+  <meta name="theme-color" content="#005A9C">
+
+  <!-- CSS Custom Light Theme Vespa Club Asti -->
+  <link rel="stylesheet" href="css/style.css">
+
+  <!-- Pacchetti centralizzati (deve stare prima di booking.js) -->
+  <script src="js/packages.js"></script>
+
+  <!-- External CDN Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+</head>
+<body>
+
+  <!-- Navigation Header - PRENOTAZIONI (Viola Indaco) -->
+  <nav class="navbar navbar-prenotazione" style="justify-content:space-between; flex-wrap:wrap; gap:0.75rem;">
+    <span class="brand brand-prenotazione" style="cursor:default;">
+      <img src="https://primary.jwwb.nl/public/s/q/g/temp-ycombtvaxsaviqalrdpe/nuovo-frecce-high.png" alt="Vespa Club Asti Logo" class="brand-logo">
+      <span>VESPA CLUB ASTI A.s.D.</span>
+      <span class="brand-badge brand-badge-prenotazione">🛵 PRENOTAZIONI</span>
+    </span>
+
+    <!-- SELETTORE LINGUA MULTILINGUA: ITALIANO, INGLESE, TEDESCO, FRANCESE -->
+    <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+      <div id="langSelectorContainer"></div>
+
+      <button type="button" id="btnRecuperaPrenotazione"
+        onclick="document.getElementById('recoverModal').style.display='flex'"
+        style="background:rgba(255,255,255,0.18); color:#FFF; border:1.5px solid rgba(255,255,255,0.45); border-radius:10px; padding:0.5rem 1.1rem; font-size:0.88rem; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:0.5rem; transition:all 0.2s; white-space:nowrap;">
+        🔍 Recupera Prenotazione
+      </button>
+    </div>
+  </nav>
+
+  <!-- Main Container -->
+  <main class="container">
+
+    <!-- ====================================================================
+         VIEW 1: FORM PRENOTAZIONE PARTECIPANTE
+         ==================================================================== -->
+    <section id="booking-view" class="view-section active">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h1 class="card-title">
+              🛵 Modulo Prenotazione Ufficiale - Vespa Club Asti A.s.D.
+            </h1>
+            <p class="card-subtitle">
+              Compila tutti i campi per registrare la tua partecipazione. Al termine riceverai il tuo Pass QR Code da esibire all'accettazione.
+            </p>
+          </div>
+        </div>
+
+        <!-- BANNER MODALITÀ MODIFICA PRENOTAZIONE RECUPERATA -->
+        <div id="bookingEditModeBanner" style="display:none; background:linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%); border:2px solid #10B981; border-radius:12px; padding:1.25rem; margin-bottom:1.5rem; box-shadow:0 4px 14px rgba(16,185,129,0.2);">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
+            <div>
+              <div style="font-size:0.8rem; font-weight:800; text-transform:uppercase; color:#047857; letter-spacing:0.5px;">
+                ✏️ MODALITÀ MODIFICA ATTIVA • PASS: <span id="bookingEditModePassId" style="font-family:monospace; font-size:1rem; font-weight:900; color:#065F46;">-</span>
+              </div>
+              <h3 style="margin:0.25rem 0 0 0; color:#065F46; font-size:1.15rem; font-weight:900;">
+                Stai modificando la tua prenotazione
+              </h3>
+              <p style="margin:0.25rem 0 0 0; font-size:0.88rem; color:#047857;">
+                Correggi qualsiasi informazione o allega la ricevuta del bonifico se non lo avevi ancora fatto. Clicca sul pulsante in fondo per salvare.
+              </p>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="window.vespaBookingForm.cancelEdit()" style="background:#FFF; border-color:#059669; color:#065F46; font-weight:800;">
+              ✕ Annulla Modifica
+            </button>
+          </div>
+        </div>
+
+        <form id="bookingForm">
+          <div class="form-grid">
+
+            <!-- COGNOME -->
+            <div class="form-group">
+              <label for="cognome">Cognome <span class="req">*</span></label>
+              <input type="text" id="cognome" required placeholder="Es. Rossi" autocomplete="family-name">
+            </div>
+
+            <!-- NOME -->
+            <div class="form-group">
+              <label for="nome">Nome <span class="req">*</span></label>
+              <input type="text" id="nome" required placeholder="Es. Mario" autocomplete="given-name">
+            </div>
+
+            <!-- DATA DI NASCITA -->
+            <div class="form-group">
+              <label for="dataNascita">Data di Nascita <span class="req">*</span></label>
+              <input type="date" id="dataNascita" required autocomplete="bday">
+              <small style="font-size:0.78rem; color:var(--text-muted); margin-top:0.3rem; display:block;">Necessaria per recuperare o modificare la prenotazione.</small>
+            </div>
+
+            <!-- VESPA CLUB DI APPARTENENZA -->
+            <div class="form-group">
+              <label for="vespaClub">Vespa Club di Appartenenza <span class="req">*</span></label>
+              <input type="text" id="vespaClub" required placeholder="Es. Vespa Club Asti" list="vespaClubList" autocomplete="off">
+              <datalist id="vespaClubList">
+                <!-- Populated dynamically from DB + pre-seeded known clubs -->
+              </datalist>
+              <small style="font-size:0.78rem; color:var(--text-muted); margin-top:0.3rem; display:block;">Inizia a digitare per selezionare il tuo Vespa Club dall'elenco ufficiale italiano o scrivi il nome del club.</small>
+            </div>
+
+            <!-- CITTÀ DI PROVENIENZA -->
+            <div class="form-group">
+              <label for="cittaProvenienza">Città di Provenienza <span class="req">*</span></label>
+              <input type="text" id="cittaProvenienza" required placeholder="Es. Asti, Torino, Milano, Roma, Cuneo..." autocomplete="address-level2">
+              <small style="font-size:0.78rem; color:var(--text-muted); margin-top:0.3rem; display:block;">Città di residenza/partenza per il calcolo della classifica della provenienza più lontana.</small>
+            </div>
+
+            <!-- NUMERO TESSERA VCI -->
+            <div class="form-group">
+              <label for="tesseraVci">Numero Tessera VCI <span class="req">*</span></label>
+              <input type="text" id="tesseraVci" required placeholder="Es. VCI-12345">
+            </div>
+
+            <!-- NUMERO TESSERA MOTORNEXT -->
+            <div class="form-group">
+              <label for="tesseraMotornext">Numero Tessera Motornext <span class="req">*</span></label>
+              <input type="text" id="tesseraMotornext" required placeholder="Es. MN-98765">
+            </div>
+
+            <!-- EMAIL -->
+            <div class="form-group">
+              <label for="email">Email <span class="req">*</span></label>
+              <input type="email" id="email" required placeholder="Es. mario.rossi@example.com" autocomplete="email">
+            </div>
+
+            <!-- NUMERO DI TELEFONO -->
+            <div class="form-group">
+              <label for="telefono">Numero di Telefono <span class="req">*</span></label>
+              <input type="tel" id="telefono" required placeholder="Es. +39 335 1234567" autocomplete="tel">
+            </div>
+
+            <!-- RUOLO -->
+            <div class="form-group">
+              <label for="ruolo">Ruolo Partecipante <span class="req">*</span></label>
+              <select id="ruolo" required>
+                <option value="CONDUCENTE">CONDUCENTE</option>
+                <option value="PASSEGGERO">PASSEGGERO</option>
+              </select>
+            </div>
+
+            <!-- MODELLO VESPA -->
+            <div class="form-group">
+              <label for="modelloVespa">Modello Vespa <span class="req">*</span></label>
+              <input type="text" id="modelloVespa" required placeholder="Es. Vespa 125 Primavera ET3" list="vespaModelList" autocomplete="off">
+              <datalist id="vespaModelList">
+                <!-- Classic / Vintage -->
+                <option value="Vespa 98"></option>
+                <option value="Vespa 125 (1948)"></option>
+                <option value="Vespa 125 U"></option>
+                <option value="Vespa 125 VM1"></option>
+                <option value="Vespa 150 GS (VS1)"></option>
+                <option value="Vespa 150 GS VS5"></option>
+                <option value="Vespa 125 GT"></option>
+                <option value="Vespa 125 GTR"></option>
+                <option value="Vespa 180 SS"></option>
+                <option value="Vespa 200 Rally"></option>
+                <option value="Vespa 180 Rally"></option>
+                <option value="Vespa 125 Primavera"></option>
+                <option value="Vespa 125 Primavera ET3"></option>
+                <option value="Vespa 125 Sprint"></option>
+                <option value="Vespa 125 Sprint Veloce"></option>
+                <option value="Vespa 90"></option>
+                <option value="Vespa 90 SS"></option>
+                <option value="Vespa 50"></option>
+                <option value="Vespa 50 Special"></option>
+                <option value="Vespa 50 R"></option>
+                <option value="Vespa 50 L"></option>
+                <option value="Vespa 50 N"></option>
+                <option value="Vespa 50 S"></option>
+                <option value="Vespa 100"></option>
+                <option value="Vespa 100 Sport"></option>
+                <option value="Vespa PX 80"></option>
+                <option value="Vespa PX 125"></option>
+                <option value="Vespa PX 150"></option>
+                <option value="Vespa PX 200"></option>
+                <option value="Vespa PX 125 E"></option>
+                <option value="Vespa PX 150 E"></option>
+                <option value="Vespa PX 200 E"></option>
+                <option value="Vespa P125X"></option>
+                <option value="Vespa P150X"></option>
+                <option value="Vespa P200E"></option>
+                <option value="Vespa PK 50"></option>
+                <option value="Vespa PK 50 S"></option>
+                <option value="Vespa PK 50 XL"></option>
+                <option value="Vespa PK 125"></option>
+                <option value="Vespa PK 125 S"></option>
+                <option value="Vespa PK 125 XL"></option>
+                <option value="Vespa T5 125"></option>
+                <option value="Vespa ET2"></option>
+                <option value="Vespa ET4 125"></option>
+                <option value="Vespa ET4 150"></option>
+                <!-- Modern / GTS / GTV -->
+                <option value="Vespa GTS 125"></option>
+                <option value="Vespa GTS 150"></option>
+                <option value="Vespa GTS 250"></option>
+                <option value="Vespa GTS 300"></option>
+                <option value="Vespa GTS 300 Super"></option>
+                <option value="Vespa GTS 300 Super Sport"></option>
+                <option value="Vespa GTS 300 HPE"></option>
+                <option value="Vespa GTV 250"></option>
+                <option value="Vespa GTV 300"></option>
+                <!-- LX / LXV -->
+                <option value="Vespa LX 50"></option>
+                <option value="Vespa LX 125"></option>
+                <option value="Vespa LX 150"></option>
+                <option value="Vespa LXV 125"></option>
+                <option value="Vespa LXV 150"></option>
+                <!-- S Series -->
+                <option value="Vespa S 50"></option>
+                <option value="Vespa S 125"></option>
+                <option value="Vespa S 150"></option>
+                <!-- Primavera / Sprint (modern) -->
+                <option value="Vespa Primavera 50"></option>
+                <option value="Vespa Primavera 125"></option>
+                <option value="Vespa Primavera 150"></option>
+                <option value="Vespa Sprint 50"></option>
+                <option value="Vespa Sprint 125"></option>
+                <option value="Vespa Sprint 150"></option>
+                <!-- Electric -->
+                <option value="Vespa Elettrica 45 km/h"></option>
+                <option value="Vespa Elettrica 70 km/h"></option>
+                <!-- Special / Limited -->
+                <option value="Vespa 946"></option>
+                <option value="Vespa 946 Emporio Armani"></option>
+                <option value="Vespa 946 RED"></option>
+                <option value="Vespa 946 Dragon"></option>
+                <option value="Vespa Sei Giorni 125"></option>
+                <option value="Vespa Sei Giorni 300"></option>
+                <option value="Vespa Racing Sixties 125"></option>
+                <option value="Vespa Racing Sixties 300"></option>
+                <option value="Vespa Notte 125"></option>
+                <option value="Vespa Notte 300"></option>
+                <option value="Vespa PX 125 30 Anni"></option>
+                <option value="Vespa 125 Anniversario (75 Anni)"></option>
+                <!-- Ape / Accessory (some events include these) -->
+                <option value="Piaggio Ape 50"></option>
+              </datalist>
+              <small style="font-size:0.78rem; color:var(--text-muted); margin-top:0.3rem; display:block;">Seleziona dalla lista o digita liberamente il modello esatto della tua Vespa.</small>
+            </div>
+
+            <!-- ANNO VESPA -->
+            <div class="form-group">
+              <label for="annoVespa">Anno Vespa <span class="req">*</span></label>
+              <input type="number" id="annoVespa" required min="1946" max="2026" placeholder="Es. 1978">
+            </div>
+
+            <!-- TAGLIA T-SHIRT -->
+            <div class="form-group">
+              <label for="tagliaTshirt">Taglia T-Shirt <span class="req">*</span></label>
+              <select id="tagliaTshirt" required>
+                <option value="S">S</option>
+                <option value="M">M</option>
+                <option value="L" selected>L</option>
+                <option value="XL">XL</option>
+                <option value="XXL">XXL</option>
+                <option value="3XL">3XL</option>
+              </select>
+            </div>
+
+            <!-- MODALITÀ DI PARTECIPAZIONE CON PREZZI CORRETTI -->
+            <div class="form-group full-width">
+              <label for="modalitaPartecipazione">Modalità di Partecipazione & Quota <span class="req">*</span></label>
+              <select id="modalitaPartecipazione" required style="font-size:1.05rem; font-weight:800; color:var(--vespa-blue-dark);" onchange="renderPackageBadgePreview()">
+                <!-- Popolato dinamicamente da packages.js al caricamento della pagina -->
+                <option value="">⏳ Caricamento pacchetti...</option>
+              </select>
+              <div id="packageBadgePreview" style="margin-top:0.4rem; display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; font-weight:700; color:var(--text-muted);"></div>
+            </div>
+
+            <!-- SEZIONE COORDINATE IBAN E PAGAMENTO BONIFICO -->
+            <div class="form-group full-width">
+              <div class="payment-box" id="paymentInfoBox" style="background:#EFF6FF; border:2px solid var(--vespa-blue); padding:1.5rem; border-radius:12px; display:flex; flex-direction:column; align-items:flex-start;">
+                <h3 style="color:var(--vespa-blue-dark); font-size:1.1rem; font-weight:800; display:flex; align-items:center; gap:0.5rem; margin:0;">
+                  🏦 Coordinate Bancarie per il Pagamento della Quota (Bonifico)
+                </h3>
+                <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.2rem; margin-bottom:0.75rem;">
+                  Effettua il versamento della quota tramite bonifico bancario utilizzando le coordinate sottostanti:
+                </p>
+
+                <div id="paymentInfoGrid" style="font-size:0.95rem; color:var(--text-main); display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:0.75rem; width:100%; background:#FFF; padding:1rem; border-radius:8px; border:1px solid var(--bg-card-border); box-sizing:border-box;">
+                  <div>
+                    <span style="color:var(--text-muted); font-size:0.75rem; font-weight:700; text-transform:uppercase; display:block;">Intestatario del Conto:</span>
+                    <strong id="payInfoIntestatario" style="color:var(--vespa-blue-dark);">Vespa Club Asti A.s.D.</strong>
+                  </div>
+                  <div>
+                    <span style="color:var(--text-muted); font-size:0.75rem; font-weight:700; text-transform:uppercase; display:block;">Istituto Bancario:</span>
+                    <strong id="payInfoBanca">Banca di Asti - Filiale Sede Centrale</strong>
+                  </div>
+                  <div style="grid-column: 1 / -1;">
+                    <span style="color:var(--text-muted); font-size:0.75rem; font-weight:700; text-transform:uppercase; display:block;">Codice IBAN:</span>
+                    <strong id="payInfoIban" style="font-family:monospace; font-size:1.1rem; color:var(--text-main); letter-spacing:1px;">IT 76 AA 03069 10300 000012345678</strong>
+                  </div>
+                  <div id="payInfoCausaleWrap" style="grid-column: 1 / -1; display:none;">
+                    <span style="color:var(--text-muted); font-size:0.75rem; font-weight:700; text-transform:uppercase; display:block;">Causale suggerita:</span>
+                    <strong id="payInfoCausale" style="font-size:0.9rem;"></strong>
+                  </div>
+                </div>
+
+                <!-- Testo ricco aggiuntivo configurato dall'organizzatore -->
+                <div id="payInfoRichExtra" style="margin-top:0.85rem; width:100%; font-size:0.9rem; color:var(--text-main); line-height:1.65; display:none;"></div>
+              </div>
+            </div>
+
+            <!-- SEZIONE ALLEGATO RICEVUTA DI PAGAMENTO (BONIFICO) -->
+            <div class="form-group full-width">
+              <label for="provaPagamentoFile">📎 Allega Ricevuta di Pagamento (Bonifico Bancario)</label>
+              <div class="file-upload-area" id="fileDropArea" onclick="document.getElementById('provaPagamentoFile').click()">
+                <div class="file-upload-icon">📄</div>
+                <div style="font-weight:800; font-size:1.05rem; color:var(--vespa-blue);">
+                  Trascina qui la ricevuta o clicca per selezionare il file
+                </div>
+                <div style="font-size:0.85rem; color:var(--text-muted); margin-top:0.35rem;">
+                  Se hai già effettuato il bonifico, allega la contabile (PDF, JPG o PNG - Max 10 MB) per velocizzare la convalida
+                </div>
+                <input type="file" id="provaPagamentoFile" accept=".pdf,image/jpeg,image/png,image/jpg" style="display:none;">
+              </div>
+
+              <!-- ANTEPRIMA FILE CARICATO -->
+              <div id="filePreviewBox" class="file-preview" style="display:none; margin-top:0.75rem;">
+                <div style="display:flex; align-items:center; gap:0.6rem;">
+                  <span style="font-size:1.5rem;">📎</span>
+                  <div>
+                    <strong id="fileNameText" style="color:var(--vespa-blue-dark); font-size:0.95rem;"></strong>
+                    <span style="display:block; font-size:0.75rem; color:var(--vespa-green); font-weight:700;">✅ Ricevuta pronta per l'invio</span>
+                  </div>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); window.vespaBookingForm.removeUploadedFile();" style="color:#DC2626;">
+                  ✕ Rimuovi File
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- BOTTOM ACTION BUTTONS -->
+          <div style="margin-top:2rem; display:flex; justify-content:center;">
+            <button type="submit" id="submitBookingBtn" class="btn btn-primary" style="font-size:1.15rem; padding:0.85rem 2.8rem; font-weight:900;">
+              🚀 Conferma e Invia Registrazione Online
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         VIEW 2: RICEVUTA E GENERAZIONE PASS QR CODE
+         ==================================================================== -->
+    <!-- ====================================================================
+         VIEW 2: RICEVUTA E GENERAZIONE PASS QR CODE
+         ==================================================================== -->
+    <section id="confirmation-view" class="view-section" style="display:none;">
+
+      <!-- AVVISO PRENOTAZIONE RECUPERATA CON PULSANTE DI MODIFICA IMMEDIATA -->
+      <div id="ticketRecoveredNotice" style="display:none; background:linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); border:2px solid #3B82F6; border-radius:14px; padding:1.25rem 1.5rem; margin-bottom:1.5rem; box-shadow:0 8px 20px rgba(59,130,246,0.2);">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+          <div>
+            <span style="font-size:0.8rem; font-weight:800; text-transform:uppercase; color:#1D4ED8; letter-spacing:0.5px;">🔍 PRENOTAZIONE TROVATA NEL DATABASE</span>
+            <h3 style="margin:0.25rem 0; color:#1E3A8A; font-size:1.2rem; font-weight:900;">
+              Desideri modificare qualche dato o allegare la ricevuta del bonifico?
+            </h3>
+            <p style="margin:0; font-size:0.9rem; color:#1E40AF;">
+              Se avevi sbagliato qualche informazione o non avevi inizialmente allegato la contabile di pagamento, puoi modificarla adesso e salvarla nuovamente.
+            </p>
+          </div>
+          <button type="button" class="btn btn-primary" onclick="window.vespaBookingForm.editCurrentTicket()" style="font-weight:900; font-size:1rem; padding:0.75rem 1.75rem; background:linear-gradient(135deg,#2563EB 0%,#1D4ED8 100%); box-shadow:0 4px 12px rgba(37,99,235,0.35);">
+            ✏️ Modifica Dati / Allega Ricevuta
+          </button>
+        </div>
+      </div>
+
+      <!-- BANNER AVVISO OBBLIGATORIO: SALVARE O STAMPARE LA SCHERMATA -->
+      <div class="save-notice-banner" style="background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%); border: 2px solid #F59E0B; padding: 1.25rem 1.5rem; border-radius: 14px; margin-bottom: 1.5rem; text-align: center; box-shadow: 0 8px 20px rgba(245, 158, 11, 0.25);">
+        <div style="font-size: 2.2rem; margin-bottom: 0.25rem;">📸 🖨️</div>
+        <h3 style="color: #92400E; font-size: 1.35rem; font-weight: 900; margin: 0 0 0.5rem 0; letter-spacing: -0.3px;">
+          ATTENZIONE: SALVA O STAMPA QUESTA SCHERMATA!
+        </h3>
+        <p style="color: #78350F; font-size: 0.96rem; line-height: 1.5; margin: 0 auto 1rem auto; max-width: 660px;">
+          <strong>Fai uno screenshot adesso sul telefono</strong> oppure <strong>stampa o scarica il tuo Pass</strong>.<br>
+          Questa schermata con il QR Code <strong>è la tua copia ufficiale di prenotazione</strong> e ti servirà all'arrivo per l'<strong>Accettazione</strong> e per la <strong>fruizione di tutti i banchi</strong> (ritiro kit gadget/t-shirt, aperitivo, cena di sabato e pranzo di domenica).
+        </p>
+        <div style="display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;">
+          <button type="button" class="btn btn-primary" onclick="window.print()" style="font-weight: 800; font-size: 1rem; padding: 0.65rem 1.5rem; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+            🖨️ Stampa o Salva PDF
+          </button>
+          <button type="button" class="btn btn-secondary" id="bannerDownloadQrBtn" style="font-weight: 800; font-size: 1rem; padding: 0.65rem 1.5rem; background: #FFF; border-color: #D97706; color: #92400E;">
+            📥 Scarica Pass QR Code
+          </button>
+          <button type="button" class="btn btn-secondary" onclick="window.vespaBookingForm.editCurrentTicket()" style="font-weight: 800; font-size: 1rem; padding: 0.65rem 1.5rem; background: #FFF; border-color: #2563EB; color: #1E40AF;">
+            ✏️ Modifica Dati / Allega Ricevuta
+          </button>
+        </div>
+      </div>
+
+      <div class="ticket-container">
+        <div class="ticket-header">
+          <span style="font-size:2.2rem; display:block; margin-bottom:0.25rem;">🛵</span>
+          <h2 style="font-size:1.4rem; font-weight:900; margin:0;">VESPA CLUB ASTI A.s.D.</h2>
+          <p style="font-size:0.85rem; opacity:0.9; margin-top:0.2rem;">Pass Ufficiale Partecipante Raduno Nazionale</p>
+          <div style="margin-top:0.6rem; background:rgba(255,255,255,0.25); border:1px solid rgba(255,255,255,0.4); padding:0.35rem 0.9rem; border-radius:8px; font-weight:900; letter-spacing:1px; display:inline-block; font-size:1.15rem;" id="ticketId">
+            VCA-2026-XXXX
+          </div>
+        </div>
+
+        <div class="ticket-body">
+          <div style="text-align:center; margin-bottom:0.75rem;">
+            <span class="badge badge-success" id="ticketStatusBadge" style="font-size:0.9rem; padding:0.45rem 1.1rem; font-weight:800;">✅ PRENOTAZIONE CONFERMATA & SALVATA</span>
+          </div>
+
+          <!-- QR CODE CONTAINER -->
+          <div class="qr-code-wrapper" id="ticketQrContainer"></div>
+
+          <p style="font-size:0.85rem; color:var(--text-muted); text-align:center; margin-bottom:1.25rem; line-height:1.4;">
+            Mostra questo codice QR agli operatori all'arrivo per l'accredito rapido all'accettazione e a ciascun banco di servizio.
+          </p>
+
+          <!-- RIEPILOGO SERVIZI E BANCA INCLUSI -->
+          <div style="margin-bottom:1.25rem; background:#F8FAFC; border:1px solid #E2E8F0; border-radius:10px; padding:0.85rem;">
+            <div style="font-size:0.75rem; font-weight:800; text-transform:uppercase; color:var(--vespa-blue-dark); margin-bottom:0.5rem; letter-spacing:0.5px;">
+              🎫 Banchi e Servizi Abilitati con questo Pass:
+            </div>
+            <div id="ticketServicesList" style="display:flex; flex-wrap:wrap; gap:0.4rem;">
+              <span class="badge badge-info" style="font-size:0.78rem;">🎁 Kit Gadget & T-Shirt</span>
+              <span class="badge badge-info" style="font-size:0.78rem;">🍹 Aperitivo di Benvenuto</span>
+              <span class="badge badge-info" id="ticketBadgeCena" style="font-size:0.78rem;">🍽️ Cena Sabato</span>
+              <span class="badge badge-info" id="ticketBadgePranzo" style="font-size:0.78rem;">🍽️ Pranzo Domenica</span>
+            </div>
+          </div>
+
+          <!-- TABELLA DATI PARTECIPANTE -->
+          <div class="ticket-info-list">
+            <div class="ticket-info-item">
+              <span class="lbl">Partecipante:</span>
+              <span class="val" id="ticketCognomeNome">-</span>
+            </div>
+            <div class="ticket-info-item">
+              <span class="lbl">Vespa Club:</span>
+              <span class="val" id="ticketVespaClub">-</span>
+            </div>
+            <div class="ticket-info-item">
+              <span class="lbl">Città di Provenienza:</span>
+              <span class="val" id="ticketCittaProvenienza">-</span>
+            </div>
+            <div class="ticket-info-item">
+              <span class="lbl">Tessera VCI:</span>
+              <span class="val" id="ticketTesseraVci">-</span>
+            </div>
+            <div class="ticket-info-item">
+              <span class="lbl">Tessera Motornext:</span>
+              <span class="val" id="ticketTesseraMn">-</span>
+            </div>
+            <div class="ticket-info-item">
+              <span class="lbl">Ruolo Partecipante:</span>
+              <span class="val" id="ticketRuolo">-</span>
+            </div>
+            <div class="ticket-info-item">
+              <span class="lbl">Modello & Anno Vespa:</span>
+              <span class="val" id="ticketVespaModel">-</span>
+            </div>
+            <div class="ticket-info-item">
+              <span class="lbl">Taglia T-Shirt:</span>
+              <span class="val" id="ticketTshirt">-</span>
+            </div>
+            <div class="ticket-info-item">
+              <span class="lbl">Stato Quota / Ricevuta:</span>
+              <span class="val" id="ticketPaymentSummary" style="font-weight:800; color:var(--vespa-blue);">-</span>
+            </div>
+            <div class="ticket-info-item" style="grid-column: 1 / -1;">
+              <span class="lbl">Pacchetto Raduno & Quota:</span>
+              <span class="val" id="ticketModalita" style="font-size:0.95rem; font-weight:800;">-</span>
+            </div>
+          </div>
+
+          <!-- ACTION BUTTONS -->
+          <div style="margin-top:1.5rem; display:flex; gap:0.75rem; flex-wrap:wrap; justify-content:center; width:100%;">
+            <button type="button" class="btn btn-primary" id="downloadQrBtn" style="font-weight:800;">
+              📥 Scarica Immagine QR
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="window.print()" style="font-weight:800;">
+              🖨️ Stampa Pass
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="window.vespaBookingForm.editCurrentTicket()" style="font-weight:800; border-color:#2563EB; color:#1E40AF; background:#EFF6FF;">
+              ✏️ Modifica Dati / Allega Ricevuta
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="location.reload()" style="font-weight:800;">
+              ➕ Nuova Prenotazione
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODALE AVVISO PRENOTAZIONE GIÀ ESISTENTE (DUPLICATO BLOCCATO) -->
+  <div id="duplicateModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); backdrop-filter:blur(6px); z-index:1200; justify-content:center; align-items:center; padding:1rem;">
+    <div class="card" style="max-width:540px; width:100%; border:3px solid #DC2626; box-shadow:0 20px 40px rgba(220,38,38,0.25); text-align:center; padding:2rem 1.75rem;">
+      <div style="font-size:3.5rem; margin-bottom:0.75rem;">🛑</div>
+      <h2 style="color:#DC2626; font-size:1.4rem; font-weight:900; margin:0 0 0.75rem 0;">
+        PRENOTAZIONE GIÀ COMPLETATA!
+      </h2>
+      <div style="background:#FEF2F2; border:1px solid #FCA5A5; border-radius:10px; padding:1rem; margin-bottom:1.25rem; font-size:0.95rem; color:#991B1B; line-height:1.5;">
+        Risulta già una prenotazione completata per il nominativo:<br>
+        <strong id="duplicateParticipantName" style="font-size:1.2rem; display:block; margin:0.4rem 0; color:#7F1D1D;">-</strong>
+        <span style="font-size:0.85rem; font-weight:700; color:#B91C1C;" id="duplicateParticipantPass">Pass già registrato</span>
+      </div>
+      <p style="font-size:0.92rem; color:var(--text-main); line-height:1.5; margin-bottom:1.25rem;">
+        Se devi effettuare una nuova prenotazione (ad esempio per un altro partecipante, passeggero o compagno di viaggio), <strong>devi utilizzare un altro nome</strong>.<br><br>
+        <span style="font-size:0.85rem; color:var(--text-muted);">
+          ℹ️ In caso di dubbi, modifiche o problemi con la prenotazione, contatta direttamente l'organizzatore del Vespa Club Asti.
+        </span>
+      </p>
+      <div style="display:flex; justify-content:center; gap:0.75rem;">
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('duplicateModal').style.display='none'" style="font-weight:800; padding:0.65rem 2rem;">
+          Ho Capito / Correggi Dati
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+  <footer style="text-align:center; padding:1.5rem; color:var(--text-dim); font-size:0.85rem;">
+    Vespa Club Asti A.s.D. - Suite Registrazione Conducenti e Passeggeri Cloud
+  </footer>
+
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="js/vespa-clubs-data.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/qr-generator.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/booking.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+  /**
+   * Popola dinamicamente il <select> dei pacchetti con i pacchetti attivi
+   * configurati dall'organizzatore in localStorage.
+   */
+  window.renderPackageBadgePreview = function() {
+    const sel = document.getElementById('modalitaPartecipazione');
+    const box = document.getElementById('packageBadgePreview');
+    if (!sel || !box || !window.VespaPkg) return;
+    const val = sel.value;
+    if (!val) { box.innerHTML = ''; return; }
+    const pkg = window.VespaPkg.resolvePackageFromRegistration(val);
+    if (!pkg) { box.innerHTML = ''; return; }
+    const svg = (window.VespaPkg.PACKAGE_BADGE_SVGS && window.VespaPkg.PACKAGE_BADGE_SVGS[pkg.id]) || '';
+    box.innerHTML = `${svg} <span style="color:var(--text-main); font-weight:800;">Pacchetto selezionato:</span> ${pkg.label} (&euro; ${pkg.price || pkg.defaultPrice})`;
+  };
+
+  (function populatePackagesSelect() {
+    function doPopulate() {
+      const sel = document.getElementById('modalitaPartecipazione');
+      if (!sel || !window.VespaPkg) return;
+      const active = window.VespaPkg.getActivePackages();
+      if (!active.length) {
+        sel.innerHTML = '<option value="">Nessun pacchetto disponibile</option>';
+        return;
+      }
+      sel.innerHTML = active.map(pkg => {
+        const badgeCode = pkg.code ? `[${pkg.code}]` : (pkg.emoji || '');
+        return `<option value="${pkg.id}|${pkg.label} - € ${pkg.price}">${badgeCode} ${pkg.label} — € ${pkg.price}</option>`;
+      }).join('');
+      renderPackageBadgePreview();
+    }
+    // Esegui subito e aggiorna se l'organizzatore cambia config in un'altra scheda
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', doPopulate);
+    } else {
+      doPopulate();
+    }
+    window.addEventListener('storage', function(e) {
+      if (e.key === 'vespa_packages_config_pulse' || e.key === 'vespa_packages_config') {
+        doPopulate();
+      }
+    });
+  })();
+  </script>
+  <script>
+  /**
+   * Hydration sezione pagamento: legge la config salvata dalla dashboard
+   * e aggiorna i campi IBAN / testo ricco visualizzati nella scheda prenotazione.
+   */
+  (function hydratePaymentInfo() {
+    function applyPaymentConfig() {
+      try {
+        const raw = localStorage.getItem('vespa_payment_config');
+        const cfg = raw ? JSON.parse(raw) : {};
+
+        const setText = (id, val) => {
+          const el = document.getElementById(id);
+          if (el && val) el.textContent = val;
+        };
+
+        setText('payInfoIntestatario', cfg.intestatario);
+        setText('payInfoBanca',        cfg.banca);
+        setText('payInfoIban',         cfg.iban);
+
+        const causaleWrap = document.getElementById('payInfoCausaleWrap');
+        const causaleEl   = document.getElementById('payInfoCausale');
+        if (causaleWrap && causaleEl && cfg.causale && cfg.causale.trim()) {
+          causaleEl.textContent = cfg.causale.trim();
+          causaleWrap.style.display = '';
+        }
+
+        // Testo ricco aggiuntivo (HTML dall'editor WYSIWYG)
+        const richEl = document.getElementById('payInfoRichExtra');
+        if (richEl && cfg.richExtra && cfg.richExtra.trim() && cfg.richExtra !== '<br>') {
+          richEl.innerHTML = cfg.richExtra;
+          // Sicurezza: apri tutti i link in nuova tab
+          richEl.querySelectorAll('a').forEach(a => {
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+          });
+          richEl.style.display = '';
+        }
+      } catch (e) {
+        console.warn('[PaymentHydration] Errore:', e);
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', applyPaymentConfig);
+    } else {
+      applyPaymentConfig();
+    }
+
+    // Aggiorna in tempo reale se l'organizzatore cambia config in un'altra scheda
+    window.addEventListener('storage', function(e) {
+      if (e.key === 'vespa_payment_config') applyPaymentConfig();
+    });
+  })();
+  </script>
+  <script>
+  /**
+   * Popola il datalist dei Vespa Club con l'elenco dei Vespa Club registrati in Italia
+   * più eventuali ulteriori club presenti nel database delle registrazioni.
+   */
+  (async function populateVespaClubDatalist() {
+    try {
+      const datalist = document.getElementById('vespaClubList');
+      if (!datalist) return;
+
+      const clubsSet = new Set(window.VESPA_CLUBS_ITALIA || []);
+
+      if (window.vespaDB) {
+        await window.vespaDB.init();
+        const all = await window.vespaDB.getAllRegistrations();
+        all.forEach(r => {
+          const club = (r.vespaClub || '').trim();
+          if (club) clubsSet.add(club);
+        });
+      }
+
+      const sortedClubs = Array.from(clubsSet).sort((a, b) => a.localeCompare(b, 'it', { sensitivity: 'base' }));
+
+      datalist.innerHTML = '';
+      sortedClubs.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        datalist.appendChild(opt);
+      });
+    } catch (e) {
+      console.warn('[VespaClubDatalist] Could not populate club list:', e);
+    }
+  })();
+
+  /**
+   * Recupera Prenotazione: cerca per Cognome + Nome + Data di Nascita.
+   * Se trovata, chiude il modal e mostra il pass completo con QR per la ristampa.
+   */
+  window.recoverBooking = async function() {
+    const btn = document.getElementById('recoverSubmitBtn');
+    const errBox = document.getElementById('recoverError');
+    const cognomeRaw = (document.getElementById('recoverCognome')?.value || '').trim().toUpperCase();
+    const nomeRaw = (document.getElementById('recoverNome')?.value || '').trim();
+    const dataNascita = (document.getElementById('recoverDataNascita')?.value || '').trim();
+
+    errBox.style.display = 'none';
+    errBox.textContent = '';
+
+    if (!cognomeRaw || !nomeRaw || !dataNascita) {
+      errBox.textContent = '⚠️ Compila tutti i campi: Cognome, Nome e Data di Nascita.';
+      errBox.style.display = 'block';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Ricerca in corso...';
+
+    try {
+      if (!window.vespaDB) throw new Error('Database non disponibile.');
+      await window.vespaDB.init();
+      const all = await window.vespaDB.getAllRegistrations();
+
+      const normalize = s => (s || '').trim().toUpperCase().replace(/\s+/g, ' ');
+
+      // Match by cognome + nome (normalized), then verify birth date
+      const found = all.find(r => {
+        const cogMatch = normalize(r.cognome) === cognomeRaw;
+        const nomMatch = normalize(r.nome).toUpperCase() === nomeRaw.toUpperCase();
+        // dataNascita field may be stored in record or not — fallback: match without it if field absent
+        const bdayOk = !r.dataNascita || r.dataNascita === dataNascita || dataNascita === '';
+        return cogMatch && nomMatch && bdayOk;
+      });
+
+      if (!found) {
+        errBox.innerHTML =
+          '<strong>❌ Nessuna prenotazione trovata</strong> per i dati inseriti.<br>' +
+          '<span style="font-size:0.82rem;">Verifica Cognome e Nome (devono essere identici a quelli usati in fase di prenotazione). ' +
+          'Per assistenza contatta l\'organizzatore del Vespa Club Asti.</span>';
+        errBox.style.display = 'block';
+        return;
+      }
+
+      // Chiudi il modal
+      document.getElementById('recoverModal').style.display = 'none';
+
+      // Mostra la vista di conferma con il pass completo
+      const bookingView = document.getElementById('booking-view');
+      const confirmationView = document.getElementById('confirmation-view');
+      if (bookingView)      { bookingView.style.display = 'none'; bookingView.classList.remove('active'); }
+      if (confirmationView) { confirmationView.style.display = 'block'; confirmationView.classList.add('active'); }
+
+      // Mostra il banner speciale con pulsante di modifica della prenotazione recuperata
+      const recNotice = document.getElementById('ticketRecoveredNotice');
+      if (recNotice) recNotice.style.display = 'block';
+
+      if (window.vespaBookingForm) {
+        window.vespaBookingForm.currentViewRecord = found;
+      }
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      if (window.app && typeof window.app.showTicketView === 'function') {
+        window.app.showTicketView(found);
+      }
+
+      if (window.app && typeof window.app.showToast === 'function') {
+        window.app.showToast('✅ Prenotazione recuperata! Puoi ristampare il tuo QR Pass o modificare i tuoi dati.', 'success');
+      }
+
+    } catch (err) {
+      errBox.textContent = '⚠️ Errore durante la ricerca: ' + (err.message || err);
+      errBox.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '🔍 Cerca la mia Prenotazione';
+    }
+  };
+  </script>
+  <!-- ====================================================================
+       MODALE RECUPERO PRENOTAZIONE ESISTENTE
+       ==================================================================== -->
+  <div id="recoverModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(59,7,100,0.75); backdrop-filter:blur(8px); z-index:1300; justify-content:center; align-items:center; padding:1rem;">
+    <div class="card" style="max-width:480px; width:100%; border:2px solid #C084FC; box-shadow:0 20px 40px rgba(59,7,100,0.35); padding:0; overflow:hidden;">
+
+      <!-- Modal Header -->
+      <div style="background:linear-gradient(135deg,#3B0764 0%,#581C87 100%); color:#FFF; padding:1.25rem 1.5rem; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div style="font-size:0.78rem; text-transform:uppercase; letter-spacing:1px; opacity:0.85; margin-bottom:0.2rem;">Vespa Club Asti A.s.D.</div>
+          <h2 style="margin:0; font-size:1.25rem; font-weight:900; color:#FFF;">🔍 Recupera la tua Prenotazione</h2>
+        </div>
+        <button onclick="document.getElementById('recoverModal').style.display='none'" style="background:rgba(255,255,255,0.2); color:#FFF; border:none; border-radius:50%; width:34px; height:34px; font-size:1.1rem; cursor:pointer; display:flex; align-items:center; justify-content:center;">✕</button>
+      </div>
+
+      <!-- Modal Body -->
+      <div style="padding:1.5rem;">
+        <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1.25rem; line-height:1.5;">
+          Inserisci i tuoi dati per ritrovare la prenotazione già effettuata e ristampare il Pass QR.
+        </p>
+
+        <div style="display:flex; flex-direction:column; gap:1rem;">
+          <div class="form-group" style="margin:0;">
+            <label for="recoverCognome">Cognome <span class="req">*</span></label>
+            <input type="text" id="recoverCognome" placeholder="Es. ROSSI" autocomplete="family-name" style="text-transform:uppercase;">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label for="recoverNome">Nome <span class="req">*</span></label>
+            <input type="text" id="recoverNome" placeholder="Es. Mario" autocomplete="given-name">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label for="recoverDataNascita">Data di Nascita <span class="req">*</span></label>
+            <input type="date" id="recoverDataNascita" autocomplete="bday">
+            <small style="font-size:0.78rem; color:var(--text-muted);">Usata per verificare la tua identità</small>
+          </div>
+        </div>
+
+        <div id="recoverError" style="display:none; margin-top:1rem; background:#FEF2F2; border:1px solid #FCA5A5; border-radius:8px; padding:0.75rem 1rem; font-size:0.88rem; color:#991B1B;"></div>
+
+        <div style="margin-top:1.5rem; display:flex; gap:0.75rem; justify-content:flex-end;">
+          <button type="button" class="btn btn-secondary" onclick="document.getElementById('recoverModal').style.display='none'">Annulla</button>
+          <button type="button" class="btn btn-primary" id="recoverSubmitBtn" onclick="window.recoverBooking()" style="font-weight:900;">
+            🔍 Cerca la mia Prenotazione
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
+

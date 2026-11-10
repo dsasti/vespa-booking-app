@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vespa Club Asti - Pasti e Aperitivi</title>
+  <meta name="description" content="Banco Pasti e Aperitivi — smarcamento prestazioni raduno Vespa Club Asti A.s.D.">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://unpkg.com/html5-qrcode"></script>
+
+  <style>
+    /* ── Giorno Selector ── */
+    .day-selector {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      justify-content: center;
+    }
+    .day-btn {
+      flex: 1;
+      max-width: 200px;
+      padding: 0.85rem 1rem;
+      border: 2.5px solid transparent;
+      border-radius: 14px;
+      font-size: 1rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: var(--bg-light, #F8FAFC);
+      color: var(--text-muted, #64748B);
+      letter-spacing: 0.02em;
+    }
+    .day-btn:hover { transform: translateY(-2px); }
+    .day-btn.active-sabato {
+      background: linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%);
+      color: #FFF; border-color: #7C3AED;
+      box-shadow: 0 6px 18px rgba(124,58,237,0.4);
+    }
+    .day-btn.active-domenica {
+      background: linear-gradient(135deg, #0369A1 0%, #0284C7 100%);
+      color: #FFF; border-color: #0369A1;
+      box-shadow: 0 6px 18px rgba(3,105,161,0.4);
+    }
+
+    /* ── Prestazione Selector ── */
+    .service-selector {
+      display: flex;
+      gap: 0.65rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 1.5rem;
+    }
+    .service-btn {
+      padding: 0.7rem 1.2rem;
+      border: 2.5px solid #CBD5E1;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      background: #FFF;
+      color: #475569;
+      transition: all 0.18s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .service-btn:hover {
+      border-color: #94A3B8;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+    }
+    .service-btn.active[data-mode="MERENDA"] {
+      background: linear-gradient(135deg,#D97706,#B45309);
+      border-color:#D97706; color:#FFF;
+      box-shadow:0 4px 14px rgba(217,119,6,0.4);
+    }
+    .service-btn.active[data-mode="APERITIVO_SAB"],
+    .service-btn.active[data-mode="APERITIVO_DOM"] {
+      background: linear-gradient(135deg,#DC2626,#991B1B);
+      border-color:#DC2626; color:#FFF;
+      box-shadow:0 4px 14px rgba(220,38,38,0.4);
+    }
+    .service-btn.active[data-mode="CENA"] {
+      background: linear-gradient(135deg,#7C3AED,#6D28D9);
+      border-color:#7C3AED; color:#FFF;
+      box-shadow:0 4px 14px rgba(124,58,237,0.4);
+    }
+    .service-btn.active[data-mode="COLAZIONE"] {
+      background: linear-gradient(135deg,#0369A1,#0284C7);
+      border-color:#0369A1; color:#FFF;
+      box-shadow:0 4px 14px rgba(3,105,161,0.4);
+    }
+    .service-btn.active[data-mode="PRANZO"] {
+      background: linear-gradient(135deg,#16A34A,#15803D);
+      border-color:#16A34A; color:#FFF;
+      box-shadow:0 4px 14px rgba(22,163,74,0.4);
+    }
+
+    /* ── Banner stato attivo ── */
+    .active-mode-banner {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.6rem 1rem;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      margin-bottom: 1.25rem;
+      background: #F1F5F9;
+      color: #64748B;
+      border: 1.5px solid #CBD5E1;
+      min-height: 2.5rem;
+    }
+    .active-mode-banner.has-mode { background:#F0FDF4; color:#15803D; border-color:#86EFAC; }
+    .banner-dot {
+      width:10px; height:10px; border-radius:50%;
+      background:#CBD5E1; flex-shrink:0;
+    }
+    .active-mode-banner.has-mode .banner-dot {
+      background:#16A34A;
+      animation: pulse-dot 1.5s infinite;
+    }
+    @keyframes pulse-dot {
+      0%,100%{opacity:1;transform:scale(1);}
+      50%{opacity:0.6;transform:scale(1.3);}
+    }
+
+    /* Scanner hidden until mode selected */
+    #scannerPanel { display:none; }
+    #scannerPanel.visible { display:block; }
+
+    /* Initial prompt */
+    #initialPrompt { text-align:center; padding:3rem 1.5rem; color:var(--text-muted,#64748B); border:2px dashed #CBD5E1; border-radius:16px; }
+  </style>
+</head>
+<body data-page-type="PASTI">
+
+  <nav class="navbar navbar-servizi">
+    <div class="brand brand-servizi" style="cursor:default;">
+      <img src="https://primary.jwwb.nl/public/s/q/g/temp-ycombtvaxsaviqalrdpe/nuovo-frecce-high.png" alt="Vespa Club Asti Logo" class="brand-logo">
+      <span>VESPA CLUB ASTI A.s.D.</span>
+      <span class="brand-badge brand-badge-servizi" id="navBadge">🍽️ PASTI &amp; APERITIVI</span>
+    </div>
+  </nav>
+
+  <main class="container">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h1 class="card-title" id="mainTitle">🍽️ Pasti e Aperitivi</h1>
+          <p class="card-subtitle">Seleziona il giorno e la prestazione da erogare, poi usa il lettore ottico o cerca il partecipante.</p>
+        </div>
+      </div>
+
+      <!-- STEP 1: Giorno -->
+      <div class="day-selector">
+        <button class="day-btn" id="btnSabato"   onclick="window.pastiApp.selectDay('SABATO')">🌙 Sabato</button>
+        <button class="day-btn" id="btnDomenica" onclick="window.pastiApp.selectDay('DOMENICA')">☀️ Domenica</button>
+      </div>
+
+      <!-- STEP 2: Prestazione (visibile dopo giorno) -->
+      <div id="serviceSelectorWrapper" style="display:none;">
+        <div class="service-selector" id="serviceButtonsRow"></div>
+        <div class="active-mode-banner" id="activeModeBanner">
+          <span class="banner-dot"></span>
+          <span id="bannerText">Seleziona una prestazione sopra per iniziare</span>
+        </div>
+      </div>
+
+      <!-- STEP 3: Scanner (visibile dopo prestazione) -->
+      <div id="scannerPanel">
+        <div class="scanner-grid">
+          <div>
+            <!-- Barra lettore ottico attiva -->
+            <div style="background:#F8FAFC; padding:1rem; border-radius:12px; border:1px solid var(--bg-card-border);">
+              <label for="scannerManualInput">🔦 Lettura Ottica Pass (Focus Attivo)</label>
+              <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
+                <input type="text" id="scannerManualInput" autofocus
+                  placeholder="Spara il codice QR o digita ID / Cognome...">
+                <button type="button" class="btn btn-secondary" id="scannerManualSearchBtn"
+                  onclick="window.vespaScanner.onQrCodeScanned(document.getElementById('scannerManualInput').value)">
+                  🔍 Smarca
+                </button>
+              </div>
+            </div>
+
+            <!-- Lista partecipanti -->
+            <div id="participantSelectBox" style="margin-top:1rem; background:#EFF6FF; padding:1rem; border-radius:12px; border:1px solid #BFDBFE;">
+              <label for="participantSelect" style="color:var(--vespa-blue-dark); font-weight:700; font-size:0.85rem; display:block; margin-bottom:0.4rem;">
+                👤 Oppure seleziona dall'elenco:
+              </label>
+              <select id="participantSelect" style="width:100%; padding:0.6rem; border-radius:8px; border:1px solid #93C5FD; font-size:0.9rem;">
+                <option value="">-- Caricamento lista partecipanti... --</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Area risultato -->
+          <div id="scannerResultContainer">
+            <div style="text-align:center; padding:3rem 1.5rem; color:var(--text-muted); background:var(--bg-light); border-radius:16px; border:2px dashed var(--bg-card-border);">
+              <div style="font-size:3rem; margin-bottom:0.5rem;" id="resultPlaceholderIcon">🍽️</div>
+              <h3>Pronto alla verifica</h3>
+              <p style="font-size:0.85rem; margin-top:0.3rem;">Scansiona il pass QR o seleziona un partecipante dall'elenco.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Prompt iniziale -->
+      <div id="initialPrompt">
+        <div style="font-size:3.5rem; margin-bottom:0.75rem;">🍽️</div>
+        <h3 style="color:#334155; font-weight:800; margin-bottom:0.5rem;">Scegli il giorno per iniziare</h3>
+        <p style="font-size:0.9rem;">Seleziona <strong>Sabato</strong> o <strong>Domenica</strong> per vedere le prestazioni disponibili.</p>
+      </div>
+
+    </div>
+  </main>
+
+  <script src="js/packages.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/scanner.js"></script>
+
+  <script>
+  (function() {
+    var SERVICES = {
+      SABATO:   [
+        { mode: 'MERENDA',       emoji: '🧁', label: 'Merenda'   },
+        { mode: 'APERITIVO_SAB', emoji: '🍹', label: 'Aperitivo' },
+        { mode: 'CENA',          emoji: '🍕', label: 'Cena'      }
+      ],
+      DOMENICA: [
+        { mode: 'COLAZIONE',     emoji: '☕', label: 'Colazione'  },
+        { mode: 'APERITIVO_DOM', emoji: '🍹', label: 'Aperitivo' },
+        { mode: 'PRANZO',        emoji: '🍝', label: 'Pranzo'    }
+      ]
+    };
+
+    var MODE_META = {
+      MERENDA:       { emoji:'🧁', dayLabel:'Sabato',   label:'Merenda'   },
+      APERITIVO_SAB: { emoji:'🍹', dayLabel:'Sabato',   label:'Aperitivo' },
+      CENA:          { emoji:'🍕', dayLabel:'Sabato',   label:'Cena'      },
+      COLAZIONE:     { emoji:'☕', dayLabel:'Domenica', label:'Colazione' },
+      APERITIVO_DOM: { emoji:'🍹', dayLabel:'Domenica', label:'Aperitivo' },
+      PRANZO:        { emoji:'🍝', dayLabel:'Domenica', label:'Pranzo'    }
+    };
+
+    function selectDay(day) {
+      // Toggle day buttons
+      document.getElementById('btnSabato').className   = 'day-btn' + (day === 'SABATO'   ? ' active-sabato'   : '');
+      document.getElementById('btnDomenica').className = 'day-btn' + (day === 'DOMENICA' ? ' active-domenica' : '');
+
+      // Show service row
+      document.getElementById('serviceSelectorWrapper').style.display = 'block';
+      document.getElementById('initialPrompt').style.display = 'none';
+
+      // Build service buttons
+      var row = document.getElementById('serviceButtonsRow');
+      row.innerHTML = '';
+      SERVICES[day].forEach(function(svc) {
+        var btn = document.createElement('button');
+        btn.className = 'service-btn';
+        btn.setAttribute('data-mode', svc.mode);
+        btn.innerHTML = svc.emoji + ' ' + svc.label;
+        btn.onclick = function() { selectMode(svc.mode); };
+        row.appendChild(btn);
+      });
+
+      // Reset banner & scanner
+      var banner = document.getElementById('activeModeBanner');
+      banner.className = 'active-mode-banner';
+      document.getElementById('bannerText').textContent = 'Seleziona una prestazione sopra per iniziare';
+      document.getElementById('scannerPanel').classList.remove('visible');
+      if (window.vespaScanner) {
+        window.vespaScanner.mode = null;
+        if (typeof window.vespaScanner.populateParticipantDropdown === 'function') {
+          window.vespaScanner.populateParticipantDropdown();
+        }
+      }
+    }
+
+    function selectMode(mode) {
+      var meta = MODE_META[mode];
+
+      // Active on buttons
+      document.querySelectorAll('.service-btn').forEach(function(b) {
+        b.classList.toggle('active', b.getAttribute('data-mode') === mode);
+      });
+
+      // Banner
+      var banner = document.getElementById('activeModeBanner');
+      banner.className = 'active-mode-banner has-mode';
+      document.getElementById('bannerText').textContent =
+        meta.emoji + '  PRESTAZIONE ATTIVA: ' + meta.label + ' — ' + meta.dayLabel;
+
+      // Title & nav badge
+      document.getElementById('mainTitle').textContent = meta.emoji + ' ' + meta.label + ' — ' + meta.dayLabel;
+      document.getElementById('navBadge').textContent  = meta.emoji + ' ' + meta.label.toUpperCase() + ' (' + meta.dayLabel.toUpperCase() + ')';
+
+      // Show scanner
+      document.getElementById('scannerPanel').classList.add('visible');
+      document.getElementById('resultPlaceholderIcon').textContent = meta.emoji;
+
+      // Update scanner mode
+      if (window.vespaScanner) {
+        window.vespaScanner.mode = mode;
+        if (typeof window.vespaScanner.populateParticipantDropdown === 'function') {
+          window.vespaScanner.populateParticipantDropdown();
+        }
+        var inp = document.getElementById('scannerManualInput');
+        if (inp) { inp.value = ''; inp.focus(); }
+        var res = document.getElementById('scannerResultContainer');
+        if (res) {
+          res.innerHTML =
+            "<div style='text-align:center;padding:3rem 1.5rem;color:var(--text-muted);background:var(--bg-light);border-radius:16px;border:2px dashed var(--bg-card-border);'>" +
+            "<div style='font-size:3rem;margin-bottom:0.5rem;'>" + meta.emoji + "</div>" +
+            "<h3>Pronto per: " + meta.label + "</h3>" +
+            "<p style='font-size:0.85rem;margin-top:0.3rem;'>Scansiona il pass QR del partecipante o cerca dal menu a sinistra.</p>" +
+            "</div>";
+        }
+      }
+    }
+
+    window.pastiApp = { selectDay: selectDay, selectMode: selectMode };
+  })();
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,64 @@
+﻿<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Vespa Club Asti - Banco Aperitivo</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://unpkg.com/html5-qrcode"></script>
+</head>
+<body data-page-type="APERITIVO">
+
+  <nav class="navbar navbar-servizi">
+    <div class="brand brand-servizi" style="cursor:default;">
+      <img src="https://primary.jwwb.nl/public/s/q/g/temp-ycombtvaxsaviqalrdpe/nuovo-frecce-high.png" alt="Vespa Club Asti Logo" class="brand-logo">
+      <span>VESPA CLUB ASTI A.s.D.</span>
+      <span class="brand-badge brand-badge-servizi">🍹 BANCO APERITIVO DI BENVENUTO</span>
+    </div>
+  </nav>
+
+  <main class="container">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h1 class="card-title">🍹 Smarcamento Automatico Aperitivo</h1>
+          <p class="card-subtitle">Spara il QR Code con il lettore ottico per erogare l'aperitivo del partecipante.</p>
+        </div>
+      </div>
+
+      <div class="scanner-grid">
+        <div>
+          <div class="scanner-video-box">
+            <div id="reader"></div>
+          </div>
+
+          <div style="margin-top:1.5rem; background:#F8FAFC; padding:1rem; border-radius:12px; border:1px solid var(--bg-card-border);">
+            <label for="scannerManualInput">Lettura Ottica Pass o Inserimento Manuale (ID o Cognome)</label>
+            <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
+              <input type="text" id="scannerManualInput" autofocus placeholder="Es. VCA-2026-1001 o ROSSI" onkeydown="if(event.key === 'Enter') { event.preventDefault(); window.vespaScanner.onQrCodeScanned(this.value); }" onchange="if(this.value) window.vespaScanner.onQrCodeScanned(this.value)">
+              <button type="button" class="btn btn-secondary" id="scannerManualSearchBtn" onclick="window.vespaScanner.onQrCodeScanned(document.getElementById('scannerManualInput').value)">🔍 Smarca</button>
+            </div>
+          </div>
+          <div id="participantSelectBox" style="margin-top:1rem; background:#EFF6FF; padding:1rem; border-radius:12px; border:1px solid #BFDBFE;">
+            <label for="participantSelect" style="color:var(--vespa-blue-dark); font-weight:700; font-size:0.85rem; display:block; margin-bottom:0.4rem;">👤 Oppure seleziona dall'elenco:</label>
+            <select id="participantSelect" style="width:100%; padding:0.6rem; border-radius:8px; border:1px solid #93C5FD; font-size:0.9rem;">
+              <option value="">-- Caricamento lista... --</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="scannerResultContainer">
+          <div style="text-align:center; padding:3rem 1.5rem; color:var(--text-muted); background:var(--bg-light); border-radius:16px; border:2px dashed var(--bg-card-border);">
+            <div style="font-size:3rem; margin-bottom:0.5rem;">🍹</div>
+            <h3>Pronto a ricevere scansioni</h3>
+            <p style="font-size:0.85rem; margin-top:0.3rem;">Appena il lettore ottico legge il QR, la prestazione verrà data automaticamente per fruita.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/packages.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/scanner.js"></script>
+</body>
+</html>

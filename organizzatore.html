@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vespa Club Asti - Dashboard e Riepilogo</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/packages.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+
+  <nav class="navbar navbar-dashboard">
+    <a href="index.html" class="brand brand-dashboard">
+      <img src="https://primary.jwwb.nl/public/s/q/g/temp-ycombtvaxsaviqalrdpe/nuovo-frecce-high.png" alt="Vespa Club Asti Logo" class="brand-logo">
+      <span>VESPA CLUB ASTI A.s.D.</span>
+      <span class="brand-badge brand-badge-dashboard">📊 DASHBOARD E RIEPILOGO</span>
+    </a>
+  </nav>
+
+  <main class="container-fluid">
+    <section id="admin-view" class="view-section active">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h1 class="card-title">📊 Dashboard Cloud Organizzazione & Gestione Incassi</h1>
+            <p class="card-subtitle">Pannello di controllo del Vespa Club Asti. Clicca sulle intestazioni delle colonne per ordinare A-Z.</p>
+          </div>
+          
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+            <button class="btn btn-primary btn-sm" onclick="window.vespaDB.exportPDFList()">📄 Esporta Elenco PDF</button>
+            <button class="btn btn-secondary btn-sm" onclick="window.vespaDB.saveNamedBackup()" style="background:#0284c7; color:#FFF; border-color:#0369a1; font-weight:700;">💾 Salva Backup</button>
+            <button class="btn btn-secondary btn-sm" onclick="window.vespaDB.triggerRestoreBackup()">🔄 Ripristina Backup</button>
+            <span style="border-left: 2px solid #cbd5e1; height: 24px; margin: 0 0.5rem;"></span>
+            <button class="btn btn-warning btn-sm" onclick="window.vespaDB.resetServicesOnly()" style="background:#d97706; color:#FFF; border-color:#b45309; font-weight:800;" title="Azzera la fruizione di tutti i servizi portandoli a Non Fruito, mantenendo anagrafiche e stato pagato/non pagato">🔄 Azzera Servizi</button>
+            <button class="btn btn-danger btn-sm" onclick="window.vespaDB.wipeDatabase()" style="background:#dc2626; border-color:#991b1b;">⚠️ Reset Database (Azzera Tutto)</button>
+            <button class="btn btn-secondary btn-sm" onclick="window.vespaDB.loadDemoData();" style="background:#0284c7; color:#FFF; border-color:#0369a1; font-weight:700;">⚡ Carica Iscrizioni Demo</button>
+          </div>
+        </div>
+
+        <!-- STATS & FINANCIAL SUMMARY CARDS -->
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-icon" style="background:#E0F2FE; color:#005A9C;">👥</div><div><div class="stat-val" id="statTotalParticipants">0</div><div class="stat-lbl">Iscritti Totali</div></div></div>
+          <div class="stat-card"><div class="stat-icon" style="background:#DCFCE7; color:#16A34A;">💶</div><div><div class="stat-val" id="statTotalPaidEuro">€ 0</div><div class="stat-lbl">Totale Incassato</div></div></div>
+          <div class="stat-card"><div class="stat-icon" style="background:#FEE2E2; color:#DC2626;">⏳</div><div><div class="stat-val" id="statTotalPendingEuro">€ 0</div><div class="stat-lbl">Totale Da Incassare</div></div></div>
+          <div class="stat-card"><div class="stat-icon" style="background:#FEF3C7; color:#D97706;">📅</div><div><div class="stat-val" id="statPresenceBreakdown">0 / 0</div><div class="stat-lbl">Presenze (Sab / Dom)</div></div></div>
+        </div>
+
+        <div style="margin-bottom:1.5rem; background:#F8FAFC; padding:1rem; border-radius:12px; border:1px solid var(--bg-card-border);">
+          <div style="font-size:0.85rem; color:var(--vespa-blue-dark); font-weight:800; text-transform:uppercase; margin-bottom:0.5rem;">👕 Riepilogo Taglie T-Shirt Ordinate per l'Evento:</div>
+          <div id="statTshirtBreakdown" style="display:flex; gap:0.5rem; flex-wrap:wrap;"></div>
+        </div>
+
+        <!-- ================================================================
+             PANNELLO CONFIGURAZIONE PACCHETTI + METODO DI PAGAMENTO
+             (collassabile, inline nella dashboard)
+             ================================================================ -->
+        <div style="margin-bottom:1.5rem; border:1.5px solid #bfdbfe; border-radius:12px; overflow:hidden; background:#FFF;">
+          <!-- Header collassabile -->
+          <div style="background:linear-gradient(90deg,#1e3a8a 0%,#1d4ed8 100%); color:#FFF; padding:0.85rem 1.25rem; display:flex; justify-content:space-between; align-items:center; cursor:pointer; gap:1rem;"
+               onclick="(function(){ var b=document.getElementById('configPanelBody'); var ic=document.getElementById('configPanelIcon'); if(b.style.display==='none'){b.style.display='';ic.textContent='▲';}else{b.style.display='none';ic.textContent='▼';} })()">
+            <div style="display:flex; align-items:center; gap:0.75rem;">
+              <span style="font-size:1.2rem;">⚙️</span>
+              <div>
+                <div style="font-weight:900; font-size:0.95rem; letter-spacing:0.3px;">Configurazione Evento</div>
+                <div style="font-size:0.78rem; opacity:0.85; margin-top:1px;">Pacchetti di iscrizione • Metodo di pagamento / IBAN</div>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:0.75rem;">
+              <button class="btn btn-sm" onclick="event.stopPropagation(); window.vespaPackagesUI.saveConfig(); window.vespaAdmin.savePaymentConfig();" style="background:rgba(255,255,255,0.2); color:#FFF; border:1.5px solid rgba(255,255,255,0.5); font-weight:800; white-space:nowrap;">💾 Salva tutto</button>
+              <span id="configPanelIcon" style="font-size:0.9rem; opacity:0.85;">▼</span>
+            </div>
+          </div>
+
+          <!-- Body collassabile -->
+          <div id="configPanelBody" style="display:none;">
+
+            <!-- TAB SELECTOR -->
+            <div style="display:flex; border-bottom:1.5px solid #e2e8f0; background:#f8fafc;">
+              <button id="configTabBtnPacchetti" onclick="window.vespaAdmin.switchConfigTab('pacchetti')"
+                style="flex:1; padding:0.65rem 1rem; font-size:0.85rem; font-weight:800; border:none; border-bottom:3px solid #1d4ed8; background:transparent; color:#1d4ed8; cursor:pointer; transition:all 0.15s;">
+                🎫 Pacchetti Iscrizione
+              </button>
+              <button id="configTabBtnPagamento" onclick="window.vespaAdmin.switchConfigTab('pagamento')"
+                style="flex:1; padding:0.65rem 1rem; font-size:0.85rem; font-weight:800; border:none; border-bottom:3px solid transparent; background:transparent; color:#64748b; cursor:pointer; transition:all 0.15s;">
+                🏦 Metodo di Pagamento
+              </button>
+            </div>
+
+            <!-- TAB: PACCHETTI -->
+            <div id="configTabPacchetti" style="padding:1.25rem;">
+              <p style="font-size:0.82rem; color:var(--text-muted); margin:0 0 1rem 0;">
+                Attiva/disattiva i pacchetti visibili nella scheda prenotazione. Modifica i prezzi (le iscrizioni già effettuate mantengono il prezzo originale).
+              </p>
+              <div id="packagesConfigGrid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:1rem;">
+                <!-- Generato da JS -->
+              </div>
+              <div style="margin-top:1rem; padding:0.65rem 0.9rem; background:#FEF3C7; border:1px solid #FCD34D; border-radius:8px; font-size:0.82rem; color:#92400E;">
+                ⚠️ <strong>Nota:</strong> Disattivare un pacchetto lo nasconde solo nei nuovi moduli di iscrizione. Le iscrizioni già effettuate rimangono invariate nel database.
+              </div>
+            </div>
+
+            <!-- TAB: METODO DI PAGAMENTO -->
+            <div id="configTabPagamento" style="display:none; padding:1.25rem;">
+              <p style="font-size:0.82rem; color:var(--text-muted); margin:0 0 1rem 0;">
+                Modifica il blocco "Coordinate Bancarie" che viene mostrato nella scheda prenotazione online. I campi strutturati (IBAN, intestatario, banca) si aggiornano automaticamente nell'anteprima. L'editor libero permette di aggiungere testo ricco formattato (testo alternativo, istruzioni PayPal, QR, link, ecc.).
+              </p>
+
+              <!-- === CAMPI STRUTTURATI === -->
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:0.85rem; margin-bottom:1.25rem;">
+                <div>
+                  <label style="font-size:0.78rem; font-weight:800; color:var(--vespa-blue-dark); text-transform:uppercase; display:block; margin-bottom:0.35rem;">🏛 Intestatario del Conto</label>
+                  <input type="text" id="paymentConfigIntestatario" placeholder="Es. Vespa Club Asti A.s.D."
+                    oninput="window.vespaAdmin.updatePaymentPreview()"
+                    style="width:100%; padding:0.55rem 0.8rem; border:1.5px solid #cbd5e1; border-radius:8px; font-size:0.9rem; font-weight:600; box-sizing:border-box;">
+                </div>
+                <div>
+                  <label style="font-size:0.78rem; font-weight:800; color:var(--vespa-blue-dark); text-transform:uppercase; display:block; margin-bottom:0.35rem;">🏦 Istituto Bancario</label>
+                  <input type="text" id="paymentConfigBanca" placeholder="Es. Banca di Asti"
+                    oninput="window.vespaAdmin.updatePaymentPreview()"
+                    style="width:100%; padding:0.55rem 0.8rem; border:1.5px solid #cbd5e1; border-radius:8px; font-size:0.9rem; font-weight:600; box-sizing:border-box;">
+                </div>
+                <div style="grid-column:1 / -1;">
+                  <label style="font-size:0.78rem; font-weight:800; color:var(--vespa-blue-dark); text-transform:uppercase; display:block; margin-bottom:0.35rem;">🔢 Codice IBAN</label>
+                  <input type="text" id="paymentConfigIban" placeholder="Es. IT76 A030 6910 3000 0001 2345 678"
+                    oninput="window.vespaAdmin.updatePaymentPreview()"
+                    style="width:100%; padding:0.55rem 0.8rem; border:1.5px solid #cbd5e1; border-radius:8px; font-size:1rem; font-weight:700; font-family:monospace; letter-spacing:1px; box-sizing:border-box;">
+                </div>
+                <div style="grid-column:1 / -1;">
+                  <label style="font-size:0.78rem; font-weight:800; color:var(--vespa-blue-dark); text-transform:uppercase; display:block; margin-bottom:0.35rem;">📝 Causale suggerita <span style="text-transform:none; font-weight:500; color:#94a3b8;">(opzionale)</span></label>
+                  <input type="text" id="paymentConfigCausale" placeholder="Es. Quota iscrizione Raduno Vespa Asti 2026 - [Cognome Nome]"
+                    oninput="window.vespaAdmin.updatePaymentPreview()"
+                    style="width:100%; padding:0.55rem 0.8rem; border:1.5px solid #cbd5e1; border-radius:8px; font-size:0.9rem; font-weight:600; box-sizing:border-box;">
+                </div>
+              </div>
+
+              <!-- === EDITOR RICCO (tipo Word) === -->
+              <div style="margin-bottom:1.25rem;">
+                <label style="font-size:0.78rem; font-weight:800; color:var(--vespa-blue-dark); text-transform:uppercase; display:block; margin-bottom:0.5rem;">
+                  ✏️ Testo libero aggiuntivo <span style="text-transform:none; font-weight:500; color:#94a3b8;">(formattabile — appare sotto l'IBAN nella scheda prenotazione)</span>
+                </label>
+
+                <!-- Toolbar WYSIWYG -->
+                <div id="payRichToolbar" style="display:flex; flex-wrap:wrap; gap:3px; padding:6px 8px; background:#f1f5f9; border:1.5px solid #cbd5e1; border-bottom:none; border-radius:8px 8px 0 0;">
+                  <!-- Stile testo -->
+                  <button type="button" title="Grassetto" onclick="document.execCommand('bold')" style="width:30px;height:28px;border:1px solid #cbd5e1;border-radius:5px;background:#fff;cursor:pointer;font-weight:900;font-size:0.95rem;">B</button>
+                  <button type="button" title="Corsivo" onclick="document.execCommand('italic')" style="width:30px;height:28px;border:1px solid #cbd5e1;border-radius:5px;background:#fff;cursor:pointer;font-style:italic;font-size:0.95rem;">I</button>
+                  <button type="button" title="Sottolineato" onclick="document.execCommand('underline')" style="width:30px;height:28px;border:1px solid #cbd5e1;border-radius:5px;background:#fff;cursor:pointer;text-decoration:underline;font-size:0.9rem;">U</button>
+                  <div style="width:1px;background:#cbd5e1;margin:2px 3px;"></div>
+                  <!-- Dimensioni testo -->
+                  <select title="Dimensione testo" onchange="document.execCommand('fontSize', false, this.value); this.value='3'" style="height:28px;border:1px solid #cbd5e1;border-radius:5px;background:#fff;cursor:pointer;font-size:0.78rem;padding:0 2px;">
+                    <option value="3">— Dimensione —</option>
+                    <option value="1">Piccolo</option>
+                    <option value="3">Normale</option>
+                    <option value="4">Medio</option>
+                    <option value="5">Grande</option>
+                    <option value="6">Molto grande</option>
+                    <option value="7">Enorme</option>
+                  </select>
+                  <!-- Colore testo -->
+                  <input type="color" title="Colore testo" onchange="document.execCommand('foreColor', false, this.value)" value="#0f172a"
+                    style="width:28px;height:28px;border:1px solid #cbd5e1;border-radius:5px;padding:1px;cursor:pointer;" title="Colore testo">
+                  <div style="width:1px;background:#cbd5e1;margin:2px 3px;"></div>
+                  <!-- Allineamento -->
+                  <button type="button" title="Allinea sinistra" onclick="document.execCommand('justifyLeft')" style="width:30px;height:28px;border:1px solid #cbd5e1;border-radius:5px;background:#fff;cursor:pointer;font-size:0.85rem;">⬅</button>
+                  <button type="button" title="Centra" onclick="document.execCommand('justifyCenter')" style="width:30px;height:28px;border:1px solid #cbd5e1;border-radius:5px;background:#fff;cursor:pointer;font-size:0.85rem;">↔</button>
+                  <button type="button" title="Allinea destra" onclick="document.execCommand('justifyRight')" style="width:30px;height:28px;border:1px solid #cbd5e1;border-radius:5px;background:#fff;cursor:pointer;font-size:0.85rem;">➡</button>
+                  <div style="width:1px;background:#cbd5e1;margin:2px 3px;"></div>
+                  <!-- Liste -->
+                  <button type="button" title="Elenco puntato" onclick="document.execCommand('insertUnorderedList')" style="width:30px;height:28px;border:1px solid #cbd5e1;border-radius:5px;background:#fff;cursor:pointer;font-size:0.85rem;">•≡</button>
+                  <button type="button" title="Elenco numerato" onclick="document.execCommand('insertOrderedList')" style="width:30px;height:28px;border:1px solid #cbd5e1;border-radius:5px;background:#fff;cursor:pointer;font-size:0.85rem;">1≡</button>
+                  <div style="width:1px;background:#cbd5e1;margin:2px 3px;"></div>
+                  <!-- Link -->
+                  <button type="button" title="Inserisci link" onclick="window.vespaAdmin.insertPaymentLink()" style="width:30px;height:28px;border:1px solid #cbd5e1;border-radius:5px;background:#fff;cursor:pointer;font-size:0.85rem;">🔗</button>
+                  <button type="button" title="Rimuovi link" onclick="document.execCommand('unlink')" style="width:30px;height:28px;border:1px solid #cbd5e1;border-radius:5px;background:#fff;cursor:pointer;font-size:0.82rem;">🔗✕</button>
+                  <div style="width:1px;background:#cbd5e1;margin:2px 3px;"></div>
+                  <!-- Separatore orizzontale -->
+                  <button type="button" title="Inserisci separatore" onclick="document.execCommand('insertHorizontalRule')" style="height:28px;padding:0 8px;border:1px solid #cbd5e1;border-radius:5px;background:#fff;cursor:pointer;font-size:0.78rem;">― Riga</button>
+                  <div style="width:1px;background:#cbd5e1;margin:2px 3px;"></div>
+                  <!-- Cancella formattazione -->
+                  <button type="button" title="Rimuovi formattazione" onclick="document.execCommand('removeFormat')" style="height:28px;padding:0 8px;border:1px solid #cbd5e1;border-radius:5px;background:#fff;cursor:pointer;font-size:0.78rem;color:#dc2626;">✕ Formato</button>
+                </div>
+
+                <!-- Area editor contenteditable -->
+                <div id="paymentConfigRichEditor"
+                  contenteditable="true"
+                  oninput="window.vespaAdmin.updatePaymentPreview()"
+                  spellcheck="false"
+                  style="min-height:120px; max-height:320px; overflow-y:auto; padding:0.85rem 1rem; border:1.5px solid #cbd5e1; border-radius:0 0 8px 8px; background:#fff; font-size:0.92rem; line-height:1.6; color:#0f172a; outline:none; box-sizing:border-box; white-space:pre-wrap;">
+                </div>
+                <div style="font-size:0.75rem; color:#94a3b8; margin-top:4px; text-align:right;">Seleziona il testo nell'editor per applicare la formattazione dalla barra degli strumenti sopra.</div>
+              </div>
+
+              <!-- === ANTEPRIMA LIVE === -->
+              <div style="margin-top:0.25rem;">
+                <div style="font-size:0.78rem; font-weight:800; color:var(--vespa-blue-dark); text-transform:uppercase; margin-bottom:0.5rem;">👁 Anteprima — come apparirà nella scheda prenotazione:</div>
+                <div id="paymentLivePreview" style="background:#EFF6FF; border:2px solid #bfdbfe; border-radius:10px; padding:1.1rem 1.25rem; font-size:0.9rem; color:#1e293b;">
+                  <div style="font-weight:800; color:#1e3a8a; margin-bottom:0.5rem; font-size:1rem;">🏦 Coordinate Bancarie per il Pagamento della Quota</div>
+                  <div id="payPreviewGrid" style="background:#fff; border:1px solid #bfdbfe; border-radius:8px; padding:0.85rem; display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:0.6rem; margin-bottom:0.6rem;">
+                    <div><span style="font-size:0.72rem;text-transform:uppercase;color:#64748b;display:block;font-weight:700;">Intestatario</span><strong id="payPrevIntestatario" style="color:#1e3a8a;">—</strong></div>
+                    <div><span style="font-size:0.72rem;text-transform:uppercase;color:#64748b;display:block;font-weight:700;">Banca</span><strong id="payPrevBanca">—</strong></div>
+                    <div style="grid-column:1/-1;"><span style="font-size:0.72rem;text-transform:uppercase;color:#64748b;display:block;font-weight:700;">IBAN</span><strong id="payPrevIban" style="font-family:monospace;font-size:1rem;letter-spacing:1px;">—</strong></div>
+                    <div id="payPrevCausaleWrap" style="grid-column:1/-1;display:none;"><span style="font-size:0.72rem;text-transform:uppercase;color:#64748b;display:block;font-weight:700;">Causale suggerita</span><strong id="payPrevCausale" style="font-size:0.88rem;"></strong></div>
+                  </div>
+                  <div id="payPrevExtra" style="font-size:0.88rem; color:#334155; line-height:1.6;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- FINE PANNELLO CONFIGURAZIONE -->
+
+        <!-- ================================================================
+             PANNELLO ELENCO ISCRITTI & PARTECIPANTI (COMPATTABILE / COLLASSABILE)
+             ================================================================ -->
+        <div style="margin-bottom:1.5rem; border:1.5px solid var(--bg-card-border); border-radius:12px; overflow:hidden; background:#FFF; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+          <!-- Header collassabile -->
+          <div style="background:linear-gradient(90deg, #0f172a 0%, #1e293b 100%); color:#FFF; padding:0.85rem 1.25rem; display:flex; justify-content:space-between; align-items:center; cursor:pointer; gap:1rem;"
+               onclick="(function(){ var b=document.getElementById('participantsListBody'); var ic=document.getElementById('participantsListIcon'); if(b.style.display==='none'){b.style.display='';ic.textContent='▲';}else{b.style.display='none';ic.textContent='▼';} })()">
+            <div style="display:flex; align-items:center; gap:0.75rem;">
+              <span style="font-size:1.2rem;">👥</span>
+              <div>
+                <div style="font-weight:900; font-size:0.95rem; letter-spacing:0.3px;">Elenco Completo Iscritti &amp; Partecipanti</div>
+                <div style="font-size:0.78rem; opacity:0.85; margin-top:1px;">Filtri, ricerca rapida, quote, stato presenze e fruizione servizi</div>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:0.75rem;">
+              <span id="participantsListIcon" style="font-size:0.9rem; opacity:0.85; font-weight:800;">▲</span>
+            </div>
+          </div>
+
+          <!-- Body collassabile -->
+          <div id="participantsListBody" style="padding:1.25rem;">
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:1rem; margin-bottom:1.25rem;">
+              <div><label for="adminSearchInput">Ricerca Istantanea</label><input type="text" id="adminSearchInput" placeholder="Cerca..."></div>
+              <div><label for="adminModeFilter">Filtra per Pacchetto</label><select id="adminModeFilter"><option value="ALL">Tutti i Pacchetti</option><option value="COMPLETA">[C] COMPLETA Sab+Dom</option><option value="FULL_SAB">[SF] FULL Sabato</option><option value="LIGHT_SAB">[SL] LIGHT Sabato</option><option value="FULL_DOM">[DF] FULL Domenica</option><option value="LIGHT_DOM">[DL] LIGHT Domenica</option></select></div>
+              <div><label for="adminStatusFilter">Filtra per Stato Pagamento</label><select id="adminStatusFilter"><option value="ALL">Tutti gli Iscritti</option><option value="PAGATO">Solo Pagati</option><option value="NON_PAGATO">Mancato Pagamento</option><option value="UNVERIFIED">Da Verificare</option></select></div>
+            </div>
+
+            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.75rem; margin-bottom:0.75rem;">
+              <div style="display:flex; align-items:center; gap:1.1rem; flex-wrap:wrap; font-size:0.8rem; color:var(--text-muted);">
+                <strong style="color:var(--text-main); font-weight:800;">Sigle &amp; Colori Pacchetto:</strong>
+                <span style="display:inline-flex; align-items:center; gap:0.35rem;">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" width="18" height="18" style="vertical-align:middle;display:inline-block;border-radius:4px;"><defs><linearGradient id="legC" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1D4ED8"/><stop offset="100%" stop-color="#1E40AF"/></linearGradient></defs><rect width="44" height="44" rx="8" fill="url(#legC)"/><text x="22" y="31" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="26" fill="#FFFFFF">C</text></svg>
+                  <strong style="color:#1E40AF;">Completa</strong> (Sab+Dom)
+                </span>
+                <span style="display:inline-flex; align-items:center; gap:0.35rem;">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" width="18" height="18" style="vertical-align:middle;display:inline-block;border-radius:4px;"><defs><linearGradient id="legSF" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#C2410C"/><stop offset="100%" stop-color="#9A3412"/></linearGradient></defs><rect width="44" height="44" rx="8" fill="url(#legSF)"/><text x="22" y="30" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="20" fill="#FFFFFF" letter-spacing="-1">SF</text></svg>
+                  <strong style="color:#9A3412;">Full Sabato</strong>
+                </span>
+                <span style="display:inline-flex; align-items:center; gap:0.35rem;">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" width="18" height="18" style="vertical-align:middle;display:inline-block;border-radius:4px;"><defs><linearGradient id="legSL" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#EA580C"/><stop offset="100%" stop-color="#C2410C"/></linearGradient></defs><rect width="44" height="44" rx="8" fill="url(#legSL)"/><text x="22" y="30" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="20" fill="#FFFFFF" letter-spacing="-1">SL</text></svg>
+                  <strong style="color:#EA580C;">Light Sabato</strong>
+                </span>
+                <span style="display:inline-flex; align-items:center; gap:0.35rem;">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" width="18" height="18" style="vertical-align:middle;display:inline-block;border-radius:4px;"><defs><linearGradient id="legDF" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#15803D"/><stop offset="100%" stop-color="#166534"/></linearGradient></defs><rect width="44" height="44" rx="8" fill="url(#legDF)"/><text x="22" y="30" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="20" fill="#FFFFFF" letter-spacing="-1">DF</text></svg>
+                  <strong style="color:#15803D;">Full Domenica</strong>
+                </span>
+                <span style="display:inline-flex; align-items:center; gap:0.35rem;">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" width="18" height="18" style="vertical-align:middle;display:inline-block;border-radius:4px;"><defs><linearGradient id="legDL" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#16A34A"/><stop offset="100%" stop-color="#15803D"/></linearGradient></defs><rect width="44" height="44" rx="8" fill="url(#legDL)"/><text x="22" y="30" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="20" fill="#FFFFFF" letter-spacing="-1">DL</text></svg>
+                  <strong style="color:#16A34A;">Light Domenica</strong>
+                </span>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="data-table"><thead id="adminTableHead"></thead><tbody id="adminTableBody"></tbody></table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         SEZIONE CLASSIFICHE RADUNO & PREMIAZIONI (FILTRABILI)
+         ==================================================================== -->
+    <section id="rankings-section" style="margin-top:2.5rem; margin-bottom:2.5rem;">
+      <div class="card">
+        <div class="card-header" style="flex-wrap:wrap; gap:1rem;">
+          <div>
+            <h2 class="card-title" style="display:flex; align-items:center; gap:0.5rem;">
+              <span>🏆</span> Classifiche Ufficiali Raduno & Premiazioni
+            </h2>
+            <p class="card-subtitle">
+              Classifiche dinamiche calcolate in tempo reale sulle prenotazioni registrate: Vespa d'Epoca più vecchia, provenienza per distanza (km dalla città di provenienza del partecipante) e Club più numeroso.
+            </p>
+          </div>
+
+          <!-- Filtro per Vespa Club -->
+          <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+            <label for="rankingClubFilter" style="margin:0; font-weight:800; font-size:0.85rem; color:var(--vespa-blue-dark); white-space:nowrap;">
+              🏢 Filtra per Vespa Club:
+            </label>
+            <select id="rankingClubFilter" onchange="window.vespaAdmin.filterRankingsByClub(this.value)" style="min-width:220px; font-weight:700;">
+              <option value="ALL">🌟 Tutti i Vespa Club</option>
+              <!-- Popolato dinamicamente da admin.js -->
+            </select>
+          </div>
+        </div>
+
+        <!-- Ranking Tabs -->
+        <div class="ranking-tabs">
+          <button class="ranking-tab-btn active" id="tabBtnOldest" onclick="window.vespaAdmin.switchRankingTab('oldest')">
+            🛵 Vespa più Vecchia
+          </button>
+          <button class="ranking-tab-btn" id="tabBtnDistance" onclick="window.vespaAdmin.switchRankingTab('distance')">
+            📍 Distanza da Asti (Città di Provenienza)
+          </button>
+          <button class="ranking-tab-btn" id="tabBtnClub" onclick="window.vespaAdmin.switchRankingTab('club')">
+            👥 Classifica Vespa Club
+          </button>
+        </div>
+
+        <!-- Dynamic Podium Area (1°, 2°, 3° Posto) -->
+        <div id="podiumContainer" style="margin-bottom:1.75rem;">
+          <!-- Generato via JavaScript -->
+        </div>
+
+        <!-- Ranking Table -->
+        <div class="table-responsive">
+          <table class="data-table" id="rankingTable">
+            <thead id="rankingTableHead"></thead>
+            <tbody id="rankingTableBody"></tbody>
+          </table>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ====================================================================
+       MODALE VISUALIZZAZIONE RICEVUTA DI PAGAMENTO BONIFICO
+       ==================================================================== -->
+  <div id="receiptModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.65); backdrop-filter:blur(6px); z-index:1100; justify-content:center; align-items:center; padding:1rem;">
+    <div class="card" style="max-width:760px; width:100%; max-height:92vh; display:flex; flex-direction:column; border:2px solid var(--vespa-blue); box-shadow:0 20px 40px rgba(0,0,0,0.3); padding:0; overflow:hidden;">
+      
+      <!-- Modal Header -->
+      <div style="background:linear-gradient(135deg, #1E3A8A 0%, #005A9C 100%); color:#FFF; padding:1.25rem 1.5rem; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div style="font-size:0.8rem; text-transform:uppercase; letter-spacing:1px; opacity:0.85;">Controllo Amministrativo Bonifici & Pagamenti</div>
+          <h2 style="margin:0; font-size:1.3rem; font-weight:800; color:#FFF;" id="receiptModalTitle">📄 Ricevuta di Pagamento Partecipante</h2>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="window.vespaAdmin.closeReceiptModal()" style="background:rgba(255,255,255,0.2); color:#FFF; border:none; font-size:1.1rem; width:34px; height:34px; padding:0; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer;">✕</button>
+      </div>
+
+      <!-- Modal Body -->
+      <div style="padding:1.5rem; overflow-y:auto; flex:1;">
+        <!-- Info Pill -->
+        <div id="receiptParticipantSummary" style="background:#F1F5F9; border-radius:10px; padding:1rem; margin-bottom:1.25rem; display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:0.75rem; font-size:0.9rem;">
+          <div><strong style="color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; display:block;">Partecipante</strong> <span id="receiptModalName" style="font-weight:700;">-</span></div>
+          <div><strong style="color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; display:block;">ID Prenotazione</strong> <span id="receiptModalId" style="font-weight:700; color:var(--vespa-blue);">-</span></div>
+          <div><strong style="color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; display:block;">Vespa Club</strong> <span id="receiptModalClub" style="font-weight:700;">-</span></div>
+          <div><strong style="color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; display:block;">Quota & Pacchetto</strong> <span id="receiptModalAmount" style="font-weight:800; color:var(--vespa-green-dark);">-</span></div>
+          <div><strong style="color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; display:block;">Stato Attuale</strong> <span id="receiptModalStatus">-</span></div>
+        </div>
+
+        <!-- Receipt Content / Viewer -->
+        <div id="receiptContentContainer" style="background:#0F172A; border-radius:12px; padding:1rem; min-height:280px; display:flex; flex-direction:column; align-items:center; justify-content:center; border:2px dashed #334155;">
+          <!-- Loaded dynamically: image, PDF or placeholder notice -->
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div style="background:#F8FAFC; border-top:1px solid #E2E8F0; padding:1rem 1.5rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem;">
+        <div id="receiptFileActions">
+          <!-- Download button if file exists -->
+        </div>
+        <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+          <button class="btn btn-secondary btn-sm" onclick="window.vespaAdmin.closeReceiptModal()">Chiudi</button>
+          <button class="btn btn-danger btn-sm" id="btnReceiptMarkUnpaid" onclick="window.vespaAdmin.setPaymentFromModal('NON_PAGATO')">❌ Segna Non Pagato</button>
+          <button class="btn btn-warning btn-sm" id="btnReceiptMarkVerify" onclick="window.vespaAdmin.setPaymentFromModal('RICEVUTA_DA_VERIFICARE')">📙 Da Verificare</button>
+          <button class="btn btn-success btn-sm" id="btnReceiptMarkPaid" onclick="window.vespaAdmin.setPaymentFromModal('PAGATO')" style="font-weight:800;">✅ Approva e Segna PAGATO</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODALE MODIFICA PARTECIPANTE -->
+  <div id="editParticipantModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); backdrop-filter:blur(6px); z-index:1000; justify-content:center; align-items:center; padding:1rem;">
+    <div class="card" style="max-width:700px; width:100%; max-height:90vh; overflow-y:auto; border:2px solid var(--vespa-blue);">
+      <div class="card-header">
+        <h2 class="card-title">✏️ Modifica Anagrafica, Iscrizione & Servizi Raduno</h2>
+        <div style="display:flex; gap:0.5rem; align-items:center;">
+          <button type="button" class="btn btn-sm" onclick="window.vespaAdmin.printVCard(document.getElementById('editId').value)" style="background:#0284c7; color:#FFF; font-weight:800; border:none; display:flex; align-items:center; gap:0.35rem;" title="Stampa Pass formato VCARD Standard (85x55 mm)">
+            🖨️ Stampa VCARD (85×55mm)
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="window.vespaAdmin.closeEditModal()">✕ Chiudi</button>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group"><label>ID Pass</label><input type="text" id="editId" readonly></div>
+        <div class="form-group"><label>Cognome</label><input type="text" id="editCognome"></div>
+        <div class="form-group"><label>Nome</label><input type="text" id="editNome"></div>
+        <div class="form-group"><label>Vespa Club</label><input type="text" id="editVespaClub"></div>
+        <div class="form-group"><label>Città di Provenienza</label><input type="text" id="editCittaProvenienza" placeholder="Es. Asti, Torino, Milano..."></div>
+        <div class="form-group"><label>Tessera VCI</label><input type="text" id="editTesseraVci"></div>
+        <div class="form-group"><label>Tessera Motornext</label><input type="text" id="editTesseraMotornext"></div>
+        <div class="form-group"><label>Email</label><input type="email" id="editEmail"></div>
+        <div class="form-group"><label>Telefono</label><input type="tel" id="editTelefono"></div>
+        <div class="form-group"><label>Ruolo</label><select id="editRuolo"><option value="CONDUCENTE">CONDUCENTE</option><option value="PASSEGGERO">PASSEGGERO</option></select></div>
+        <div class="form-group"><label>Modello Vespa</label><input type="text" id="editModelloVespa"></div>
+        <div class="form-group"><label>Anno Vespa</label><input type="number" id="editAnnoVespa"></div>
+        <div class="form-group"><label>Taglia T-Shirt</label><select id="editTagliaTshirt"><option value="XS">XS</option><option value="S">S</option><option value="M">M</option><option value="L">L</option><option value="XL">XL</option><option value="XXL">XXL</option><option value="3XL">3XL</option></select></div>
+        <div class="form-group full-width"><label>Pacchetto</label><select id="editModalitaPartecipazione">
+          <!-- Popolato dinamicamente da vespaPackagesUI.populateEditModalSelect() -->
+          <option value="COMPLETA">🏆 COMPLETA Sabato + Domenica — € 95</option>
+          <option value="FULL_SAB">🌅 FULL Sabato — € 60</option>
+          <option value="FULL_DOM">🌄 FULL Domenica — € 50</option>
+          <option value="LIGHT_SAB">🛵 LIGHT Sabato — € 15</option>
+          <option value="LIGHT_DOM">☀️ LIGHT Domenica — € 20</option>
+        </select></div>
+        <div class="form-group full-width"><label>Stato Pagamento</label><select id="editStatoPagamento"><option value="PAGATO">✅ PAGATO</option><option value="RICEVUTA_DA_VERIFICARE">📙 DA VERIFICARE</option><option value="NON_PAGATO">❌ NON PAGATO</option></select></div>
+        <div class="form-group full-width"><label>Ricevuta Allegata</label><div id="editPayProofContainer"></div></div>
+        <div class="form-group full-width"><label>Note Organizzatore</label><textarea id="editNoteOrganizzatore" rows="2" style="width:100%; padding:0.6rem; border:1px solid var(--bg-card-border); border-radius:8px; font-size:0.9rem; resize:vertical;"></textarea></div>
+
+        <!-- SEZIONE GESTIONE SERVIZI & BANCHI DELLA SCHEDA CLIENTE -->
+        <div class="form-group full-width" style="background:#F8FAFC; border:1px solid #CBD5E1; border-radius:12px; padding:1.2rem; margin-top:0.5rem;">
+          <h3 style="margin:0 0 0.5rem 0; font-size:1rem; font-weight:800; color:var(--vespa-blue-dark); display:flex; align-items:center; gap:0.5rem;">
+            🎫 Fruizione Servizi & Presenze ai Banchi Raduno
+          </h3>
+          <p style="font-size:0.8rem; color:var(--text-muted); margin:0 0 1rem 0;">
+            Stato registrato in tempo reale dai banchi (lettura ottica QR, selezione partecipante o ricerca manuale). È possibile modificarlo anche direttamente da questa scheda:
+          </p>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:0.85rem;">
+            <div>
+              <label for="editAccettazioneSabato" style="font-weight:700; font-size:0.85rem;">Accettazione Sabato</label>
+              <select id="editAccettazioneSabato" style="font-size:0.85rem; font-weight:700;">
+                <option value="false">❌ Non Convalidata</option>
+                <option value="true">✅ CONVALIDATA</option>
+              </select>
+              <span id="editAccettazioneSabatoTime" style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:0.25rem;"></span>
+            </div>
+            <div>
+              <label for="editAccettazioneDomenica" style="font-weight:700; font-size:0.85rem;">Accettazione Domenica</label>
+              <select id="editAccettazioneDomenica" style="font-size:0.85rem; font-weight:700;">
+                <option value="false">❌ Non Convalidata</option>
+                <option value="true">✅ CONVALIDATA</option>
+              </select>
+              <span id="editAccettazioneDomenicaTime" style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:0.25rem;"></span>
+            </div>
+            <div>
+              <label for="editRitiroGadget" style="font-weight:700; font-size:0.85rem;">👕 Kit Gadget & T-Shirt</label>
+              <select id="editRitiroGadget" style="font-size:0.85rem; font-weight:700;">
+                <option value="false">📦 Da Consegnare</option>
+                <option value="true">✅ RITIRATO</option>
+              </select>
+              <span id="editRitiroGadgetTime" style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:0.25rem;"></span>
+            </div>
+            <div>
+              <label for="editAperitivoSabato" style="font-weight:700; font-size:0.85rem;">🍹 Aperitivo Sabato</label>
+              <select id="editAperitivoSabato" style="font-size:0.85rem; font-weight:700;">
+                <option value="false">⏳ Da Erogare</option>
+                <option value="true">✅ FRUITO</option>
+              </select>
+              <span id="editAperitivoSabatoTime" style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:0.25rem;"></span>
+            </div>
+            <div>
+              <label for="editAperitivoDomenica" style="font-weight:700; font-size:0.85rem;">🍸 Aperitivo Domenica</label>
+              <select id="editAperitivoDomenica" style="font-size:0.85rem; font-weight:700;">
+                <option value="false">⏳ Da Erogare</option>
+                <option value="true">✅ FRUITO</option>
+              </select>
+              <span id="editAperitivoDomenicaTime" style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:0.25rem;"></span>
+            </div>
+            <div>
+              <label for="editColazioneDomenica" style="font-weight:700; font-size:0.85rem;">🥐 Colazione Domenica</label>
+              <select id="editColazioneDomenica" style="font-size:0.85rem; font-weight:700;">
+                <option value="false">⏳ Da Erogare</option>
+                <option value="true">✅ FRUITA</option>
+              </select>
+              <span id="editColazioneDomenicaTime" style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:0.25rem;"></span>
+            </div>
+            <div>
+              <label for="editCena" style="font-weight:700; font-size:0.85rem;">🍽️ Cena Sabato Sera</label>
+              <select id="editCena" style="font-size:0.85rem; font-weight:700;">
+                <option value="false">⏳ Da Erogare</option>
+                <option value="true">✅ FRUITA</option>
+              </select>
+              <span id="editCenaTime" style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:0.25rem;"></span>
+            </div>
+            <div>
+              <label for="editMerenda" style="font-weight:700; font-size:0.85rem;">🧁 Merenda Sabato</label>
+              <select id="editMerenda" style="font-size:0.85rem; font-weight:700;">
+                <option value="false">⏳ Da Erogare</option>
+                <option value="true">✅ FRUITA</option>
+              </select>
+              <span id="editMerendaTime" style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:0.25rem;"></span>
+            </div>
+            <div>
+              <label for="editPranzo" style="font-weight:700; font-size:0.85rem;">🍽️ Pranzo Domenica</label>
+              <select id="editPranzo" style="font-size:0.85rem; font-weight:700;">
+                <option value="false">⏳ Da Erogare</option>
+                <option value="true">✅ FRUITO</option>
+              </select>
+              <span id="editPranzoTime" style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:0.25rem;"></span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <div style="margin-top:1.5rem; display:flex; gap:0.75rem; justify-content:space-between; align-items:center; flex-wrap:wrap;">
+        <button type="button" class="btn btn-sm" onclick="window.vespaAdmin.printVCard(document.getElementById('editId').value)" style="background:#0284c7; color:#FFF; font-weight:800; border:none; padding:0.5rem 1rem;" title="Stampa Pass formato VCARD Standard (85x55 mm)">
+          🖨️ Stampa Badge VCARD (85×55 mm)
+        </button>
+        <div style="display:flex; gap:0.75rem;">
+          <button class="btn btn-secondary" onclick="window.vespaAdmin.closeEditModal()">Annulla</button>
+          <button class="btn btn-primary" onclick="window.vespaAdmin.saveEditModal()">💾 Salva Modifiche Admin</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODALE SELEZIONE ORDINAMENTO PER ESPORTAZIONE PDF -->
+  <div id="pdfSortModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.7); backdrop-filter:blur(6px); z-index:1200; justify-content:center; align-items:center; padding:1rem;">
+    <div class="card" style="max-width:500px; width:100%; border:2px solid var(--vespa-blue); box-shadow:0 20px 40px rgba(0,90,156,0.3); padding:0; overflow:hidden;">
+      <div style="background:linear-gradient(135deg, #005A9C 0%, #003E6B 100%); color:#FFF; padding:1.2rem 1.5rem; display:flex; justify-content:space-between; align-items:center;">
+        <h2 style="font-size:1.2rem; font-weight:900; margin:0; display:flex; align-items:center; gap:0.5rem;">
+          📄 Esporta Elenco PDF - Ordinamento
+        </h2>
+        <button type="button" onclick="window.vespaDB.closePdfSortModal()" style="background:transparent; border:none; color:#FFF; font-size:1.25rem; cursor:pointer;">✕</button>
+      </div>
+      <div style="padding:1.5rem;">
+        <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:1.25rem; line-height:1.5;">
+          Scegli la colonna di intestazione in base alla quale ordinare i partecipanti prima della generazione e della stampa del PDF:
+        </p>
+
+        <div style="display:flex; flex-direction:column; gap:1rem;">
+          <div>
+            <label for="pdfSortColumnSelect" style="font-size:0.85rem; font-weight:800; display:block; margin-bottom:0.4rem; color:var(--vespa-blue-dark);">
+              📋 Ordina per colonna:
+            </label>
+            <select id="pdfSortColumnSelect" style="width:100%; padding:0.65rem 0.85rem; border-radius:8px; border:1.5px solid var(--bg-card-border); font-size:0.95rem; font-weight:700; background:#FFF;">
+              <option value="cognome" selected>Cognome & Nome (Alfabetico A-Z)</option>
+              <option value="vespaClub">Vespa Club (A-Z)</option>
+              <option value="cittaProvenienza">Città di Provenienza (A-Z)</option>
+              <option value="id">ID Pass (VCA-...)</option>
+              <option value="tagliaTshirt">Taglia T-Shirt (S &rarr; 3XL)</option>
+              <option value="modalitaPartecipazione">Pacchetto Raduno & Quota</option>
+              <option value="statoPagamento">Stato Pagamento (Pagato / Non Pagato)</option>
+              <option value="statoAccettazioneSabato">Presenza Accettazione Sabato</option>
+              <option value="statoAccettazioneDomenica">Presenza Accettazione Domenica</option>
+              <option value="ritiroGadget">Ritiro Kit Gadget</option>
+              <option value="merenda">Merenda Sabato</option>
+              <option value="aperitivoSabatoErogato">Aperitivo Sabato</option>
+              <option value="cena">Cena Sabato</option>
+              <option value="colazioneDomenicaErogata">Colazione Domenica</option>
+              <option value="aperitivoDomenicaErogato">Aperitivo Domenica</option>
+              <option value="pranzo">Pranzo Domenica</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="pdfSortDirectionSelect" style="font-size:0.85rem; font-weight:800; display:block; margin-bottom:0.4rem; color:var(--vespa-blue-dark);">
+              ↕️ Direzione ordinamento:
+            </label>
+            <select id="pdfSortDirectionSelect" style="width:100%; padding:0.65rem 0.85rem; border-radius:8px; border:1.5px solid var(--bg-card-border); font-size:0.95rem; font-weight:700; background:#FFF;">
+              <option value="asc" selected>Crescente (A &rarr; Z, Min &rarr; Max)</option>
+              <option value="desc">Decrescente (Z &rarr; A, Max &rarr; Min)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-top:1.5rem; display:flex; justify-content:flex-end; gap:0.75rem;">
+          <button type="button" class="btn btn-secondary" onclick="window.vespaDB.closePdfSortModal()">
+            Annulla
+          </button>
+          <button type="button" class="btn btn-primary" onclick="window.vespaDB.confirmExportPDF()" style="font-weight:900; padding:0.65rem 1.6rem;">
+            🖨️ Genera e Stampa PDF
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODALE RIPRISTINO BACKUP INTERATTIVO -->
+  <div id="restoreBackupModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); z-index:9999; align-items:center; justify-content:center; padding:1rem; backdrop-filter:blur(4px);">
+    <div class="modal-content" style="background:#FFF; border-radius:14px; max-width:620px; width:100%; box-shadow:0 20px 25px -5px rgba(0,0,0,0.2); overflow:hidden; border:1px solid #cbd5e1; max-height:90vh; display:flex; flex-direction:column;">
+      <div style="background:var(--vespa-blue-dark); color:#FFF; padding:1.2rem 1.5rem; display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="margin:0; font-size:1.15rem; font-weight:900;">🔄 Ripristina Backup</h3>
+        <button type="button" onclick="window.vespaDB.closeRestoreBackupModal()" style="background:none; border:none; color:#FFF; font-size:1.4rem; cursor:pointer; line-height:1;">&times;</button>
+      </div>
+
+      <div style="padding:1.25rem 1.5rem; overflow-y:auto; flex:1;">
+        <p style="font-size:0.9rem; color:#475569; margin-top:0; margin-bottom:1rem;">
+          Seleziona il backup che desideri ripristinare dall'elenco salvato nella cartella dell'app o nel browser, oppure carica direttamente un file JSON dal tuo computer.
+        </p>
+
+        <!-- Barra caricamento file locale -->
+        <div style="background:#f1f5f9; padding:0.75rem 1rem; border-radius:8px; border:1px dashed #94a3b8; display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+          <div>
+            <div style="font-weight:700; font-size:0.9rem; color:#1e293b;">📁 File dal computer</div>
+            <div style="font-size:0.8rem; color:#64748b;">Carica un qualsiasi file di backup .json</div>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="window.vespaDB.pickAndRestoreBackupFile()" style="font-weight:700;">
+            Sfoglia File...
+          </button>
+        </div>
+
+        <div style="font-weight:800; font-size:0.85rem; color:var(--vespa-blue-dark); text-transform:uppercase; margin-bottom:0.6rem; letter-spacing:0.5px;">
+          💾 Elenco Backup Disponibili:
+        </div>
+
+        <div id="backupListContainer" style="display:flex; flex-direction:column; gap:0.6rem;">
+          <div style="text-align:center; padding:1.5rem; color:#94a3b8; font-size:0.9rem;">
+            Caricamento elenco backup in corso...
+          </div>
+        </div>
+      </div>
+
+      <div style="background:#f8fafc; padding:0.9rem 1.5rem; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end;">
+        <button type="button" class="btn btn-secondary" onclick="window.vespaDB.closeRestoreBackupModal()">
+          Chiudi
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toastContainer" class="toast-container"></div>
+  <script src="js/db.js"></script>
+  <script src="js/admin.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
+
