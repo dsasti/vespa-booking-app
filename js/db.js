@@ -470,19 +470,29 @@ class VespaDB {
 
   async syncFromBackendIfAvailable() {
     try {
-      const res = await fetch('/api/registrations');
+      const res = await fetch('/api/registrations?_t=' + Date.now());
       if (res.ok) {
         const list = await res.json();
         if (Array.isArray(list) && list.length > 0) {
-          const current = await this.getAllRegistrations();
-          if (!current || current.length === 0 || current.length < list.length) {
-            for (const item of list) {
-              await this.saveRegistration(item);
-            }
+          // Aggiorna in blocco IndexedDB e LocalStorage in modo istantaneo
+          if (this.db) {
+            await new Promise((resolve) => {
+              try {
+                const tx = this.db.transaction(this.storeName, 'readwrite');
+                const store = tx.objectStore(this.storeName);
+                list.forEach(item => store.put(item));
+                tx.oncomplete = () => resolve(true);
+                tx.onerror = () => resolve(false);
+              } catch(e) { resolve(false); }
+            });
           }
+          this.setLocalStorageAll(list);
+          this.notifyListeners({ type: 'DATA_UPDATED', action: 'REMOTE_SYNC', list });
+          return list;
         }
       }
     } catch (e) {}
+    return null;
   }
 
   // 100 ISCRIZIONI DEMO DIVERSIFICATE E REALISTICHE (ITALIA ED ESTERO) PER IL VESPA CLUB ASTI

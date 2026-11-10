@@ -29,6 +29,22 @@ class VespaAdminDashboard {
     window.vespaDB.onChange(async () => {
       await this.refreshData();
     });
+
+    // Controllo istantaneo ad altissima frequenza (ogni 1.5 secondi) tramite /api/pulse
+    let lastKnownChange = 0;
+    setInterval(async () => {
+      try {
+        const resp = await fetch('/api/pulse?_t=' + Date.now());
+        if (resp.ok) {
+          const pulse = await resp.json();
+          if (pulse.lastChange && pulse.lastChange !== lastKnownChange) {
+            lastKnownChange = pulse.lastChange;
+            await window.vespaDB.syncFromBackendIfAvailable();
+            await this.refreshData();
+          }
+        }
+      } catch (e) {}
+    }, 1500);
   }
 
   async refreshData() {

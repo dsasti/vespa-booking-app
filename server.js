@@ -10,6 +10,11 @@ const DATA_FILE = path.join(__dirname, 'dati_prenotazioni.json');
 const BACKUPS_DIR = path.join(__dirname, 'backups');
 if (!fs.existsSync(BACKUPS_DIR)) fs.mkdirSync(BACKUPS_DIR, { recursive: true });
 
+let lastGlobalChangeTimestamp = Date.now();
+function notifyDataChange() {
+  lastGlobalChangeTimestamp = Date.now();
+}
+
 const MONGO_URI = process.env.MONGO_URI;
 let mongoose = null;
 let RegistrationModel = null;
@@ -74,6 +79,7 @@ async function readDataAsync() {
 }
 
 async function saveRecordAsync(record) {
+  notifyDataChange();
   if (isMongoConnected && RegistrationModel) {
     try {
       await RegistrationModel.findOneAndUpdate(
@@ -96,6 +102,7 @@ async function saveRecordAsync(record) {
 }
 
 async function saveBatchAsync(list) {
+  notifyDataChange();
   if (isMongoConnected && RegistrationModel) {
     try {
       await RegistrationModel.deleteMany({});
@@ -173,7 +180,18 @@ const server = http.createServer(async (req, res) => {
       status: 'active',
       timestamp: new Date().toISOString(),
       database: isMongoConnected ? 'mongodb_atlas' : 'local_json',
-      uptime: Math.round(process.uptime())
+      uptime: Math.round(process.uptime()),
+      lastChange: lastGlobalChangeTimestamp
+    }));
+    return;
+  }
+
+  // Endpoint di sincronizzazione rapida / pulse per aggiornamento istantaneo
+  if (pathname === '/api/pulse') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      lastChange: lastGlobalChangeTimestamp,
+      timestamp: Date.now()
     }));
     return;
   }
