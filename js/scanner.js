@@ -14,6 +14,71 @@ class VespaScanner {
     this.currentFacingMode = "environment"; // default fotocamera posteriore
     this.lastScannedCode = null;
     this.lastScanTime = 0;
+    this.audioCtx = null;
+  }
+
+  // Inizializza o riattiva l'AudioContext del browser
+  getAudioContext() {
+    try {
+      if (!this.audioCtx) {
+        var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          this.audioCtx = new AudioContextClass();
+        }
+      }
+      if (this.audioCtx && this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume();
+      }
+    } catch(e) {}
+    return this.audioCtx;
+  }
+
+  // Suono di successo: Bip squillante e pulito (tipo cassa / tornello) + vibrazione breve
+  playSuccessSound() {
+    try {
+      if (navigator.vibrate) navigator.vibrate(120);
+      var ctx = this.getAudioContext();
+      if (!ctx) return;
+      var now = ctx.currentTime;
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = "sine";
+      // Bip a due frequenze ascendenti rapide: 880Hz -> 1320Hz
+      osc.frequency.setValueAtTime(880, now);
+      osc.frequency.setValueAtTime(1320, now + 0.08);
+      gain.gain.setValueAtTime(0.25, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.22);
+    } catch(e) {
+      console.warn("[VespaScanner] Audio non disponibile:", e);
+    }
+  }
+
+  // Suono di errore / già fruito: Doppio tono grave discendente (tipo din-don di errore) + doppia vibrazione
+  playErrorSound() {
+    try {
+      if (navigator.vibrate) navigator.vibrate([150, 80, 200]);
+      var ctx = this.getAudioContext();
+      if (!ctx) return;
+      var now = ctx.currentTime;
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = "sawtooth"; // Tono più aspro di rifiuto
+      // Tono basso discendente: 280Hz -> 160Hz
+      osc.frequency.setValueAtTime(320, now);
+      osc.frequency.linearRampToValueAtTime(180, now + 0.18);
+      gain.gain.setValueAtTime(0.3, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.35);
+    } catch(e) {
+      console.warn("[VespaScanner] Audio non disponibile:", e);
+    }
   }
 
   async init(mode) {
@@ -103,6 +168,7 @@ class VespaScanner {
       toggleBtn.addEventListener("click", function(e) {
         e.preventDefault();
         e.stopPropagation();
+        self.getAudioContext(); // Sblocca l'audio all'interazione dell'utente
         if (self.isScanning) {
           self.stopScanner();
         } else {
@@ -601,6 +667,7 @@ class VespaScanner {
   }
 
   renderPaymentBlockedFeedback(p) {
+    this.playErrorSound();
     var container = document.getElementById("scannerResultContainer");
     if (!container) return;
     var price = p.importoDovuto || 55;
@@ -644,6 +711,12 @@ class VespaScanner {
   }
 
   renderStatusFeedback(message, tone, p, activeMode) {
+    if (tone === "success") {
+      this.playSuccessSound();
+    } else {
+      this.playErrorSound();
+    }
+
     // activeMode viene passato esplicitamente da validateAndProcessRegistration
     // per evitare di leggere this.mode (che può cambiare in async)
     var displayMode = activeMode || this.mode;
