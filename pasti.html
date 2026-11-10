@@ -175,28 +175,28 @@
               <div id="reader"></div>
             </div>
 
-            <!-- Barra lettore ottico attiva -->
-            <div style="margin-top:1.5rem; background:#F8FAFC; padding:1rem; border-radius:12px; border:1px solid var(--bg-card-border);">
-              <label for="scannerManualInput">🔦 Lettura Ottica Pass (Focus Attivo)</label>
-              <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
-                <input type="text" id="scannerManualInput" autofocus
-                  placeholder="Spara il codice QR o digita ID / Cognome...">
-                <button type="button" class="btn btn-secondary" id="scannerManualSearchBtn"
-                  onclick="window.vespaScanner.onQrCodeScanned(document.getElementById('scannerManualInput').value)">
-                  🔍 Smarca
-                </button>
+            <!-- Ricerca manuale e lista collassabile -->
+            <details style="margin-top:0.6rem; background:#F8FAFC; border-radius:10px; border:1px solid #CBD5E1; padding:0.4rem 0.75rem;">
+              <summary style="font-size:0.85rem; font-weight:700; color:#334155; cursor:pointer; user-select:none;">
+                🔍 Ricerca manuale o seleziona partecipante
+              </summary>
+              <div style="margin-top:0.6rem; padding-top:0.5rem; border-top:1px dashed #CBD5E1;">
+                <div style="display:flex; gap:0.4rem;">
+                  <input type="text" id="scannerManualInput" autofocus
+                    placeholder="Spara QR o digita ID / Cognome..."
+                    style="flex:1; padding:0.5rem; border-radius:6px; border:1px solid #94A3B8; font-size:0.88rem;">
+                  <button type="button" class="btn btn-secondary" id="scannerManualSearchBtn" style="padding:0.5rem 0.8rem; font-size:0.88rem;"
+                    onclick="window.vespaScanner.onQrCodeScanned(document.getElementById('scannerManualInput').value)">
+                    Smarca
+                  </button>
+                </div>
+                <div id="participantSelectBox" style="margin-top:0.5rem;">
+                  <select id="participantSelect" style="width:100%; padding:0.45rem; border-radius:6px; border:1px solid #93C5FD; font-size:0.85rem;">
+                    <option value="">-- Seleziona partecipante --</option>
+                  </select>
+                </div>
               </div>
-            </div>
-
-            <!-- Lista partecipanti -->
-            <div id="participantSelectBox" style="margin-top:1rem; background:#EFF6FF; padding:1rem; border-radius:12px; border:1px solid #BFDBFE;">
-              <label for="participantSelect" style="color:var(--vespa-blue-dark); font-weight:700; font-size:0.85rem; display:block; margin-bottom:0.4rem;">
-                👤 Oppure seleziona dall'elenco:
-              </label>
-              <select id="participantSelect" style="width:100%; padding:0.6rem; border-radius:8px; border:1px solid #93C5FD; font-size:0.9rem;">
-                <option value="">-- Caricamento lista partecipanti... --</option>
-              </select>
-            </div>
+            </details>
           </div>
 
           <!-- Area risultato -->
