@@ -6,7 +6,7 @@
   <title>Vespa Club Asti - Banco Accettazione Presenze</title>
   <meta name="description" content="Banco Accettazione Presenze — Vespa Club Asti A.s.D.">
   <link rel="stylesheet" href="css/style.css">
-  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
   <style>
     /* ── Selettore Giorno (identico a pasti.html) ── */
@@ -262,6 +262,10 @@
         }
         if (window.vespaScanner.populateClubDropdown) {
           window.vespaScanner.populateClubDropdown();
+        }
+        // Se disponibile e su mobile/tablet, assicura avvio fotocamera all'attivazione del banco
+        if (window.vespaScanner.setupCameraControlsUI) {
+          window.vespaScanner.setupCameraControlsUI();
         }
       }
     }

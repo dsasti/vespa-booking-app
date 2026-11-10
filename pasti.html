@@ -6,7 +6,7 @@
   <title>Vespa Club Asti - Pasti e Aperitivi</title>
   <meta name="description" content="Banco Pasti e Aperitivi — smarcamento prestazioni raduno Vespa Club Asti A.s.D.">
   <link rel="stylesheet" href="css/style.css">
-  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
   <style>
     /* ── Giorno Selector ── */
@@ -171,8 +171,12 @@
       <div id="scannerPanel">
         <div class="scanner-grid">
           <div>
+            <div class="scanner-video-box">
+              <div id="reader"></div>
+            </div>
+
             <!-- Barra lettore ottico attiva -->
-            <div style="background:#F8FAFC; padding:1rem; border-radius:12px; border:1px solid var(--bg-card-border);">
+            <div style="margin-top:1.5rem; background:#F8FAFC; padding:1rem; border-radius:12px; border:1px solid var(--bg-card-border);">
               <label for="scannerManualInput">🔦 Lettura Ottica Pass (Focus Attivo)</label>
               <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
                 <input type="text" id="scannerManualInput" autofocus
@@ -305,6 +309,9 @@
         window.vespaScanner.mode = mode;
         if (typeof window.vespaScanner.populateParticipantDropdown === 'function') {
           window.vespaScanner.populateParticipantDropdown();
+        }
+        if (typeof window.vespaScanner.setupCameraControlsUI === 'function') {
+          window.vespaScanner.setupCameraControlsUI();
         }
         var inp = document.getElementById('scannerManualInput');
         if (inp) { inp.value = ''; inp.focus(); }

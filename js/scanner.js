@@ -9,6 +9,11 @@ class VespaScanner {
     this.isScanning = false;
     this.currentParticipant = null;
     this.mode = document.body.getAttribute("data-page-type") || "ACCETTAZIONE";
+    this.availableCameras = [];
+    this.selectedCameraId = null;
+    this.currentFacingMode = "environment"; // default fotocamera posteriore
+    this.lastScannedCode = null;
+    this.lastScanTime = 0;
   }
 
   async init(mode) {
@@ -42,16 +47,264 @@ class VespaScanner {
 
     this.focusInput();
     document.addEventListener("click", function(e) {
-      var ignore = e.target.closest("#participantSelectBox, #scannerActionButtons, button, select");
+      var ignore = e.target.closest("#participantSelectBox, #scannerActionButtons, #cameraControlsContainer, button, select, input, a");
       if (!ignore) self.focusInput();
     });
 
     await this.populateParticipantDropdown();
+    this.setupCameraControlsUI();
   }
 
   focusInput() {
     var manualInput = document.getElementById("scannerManualInput");
     if (manualInput && document.activeElement !== manualInput) manualInput.focus();
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     GESTIONE FOTOCAMERA UNIVERSALE (Smartphone, Tablet, PC)
+  ───────────────────────────────────────────────────────────── */
+
+  setupCameraControlsUI() {
+    var readerDiv = document.getElementById("reader");
+    if (!readerDiv) return;
+
+    // Se i controlli sono già stati creati, non duplicarli
+    if (document.getElementById("cameraControlsContainer")) return;
+
+    var controls = document.createElement("div");
+    controls.id = "cameraControlsContainer";
+    controls.className = "camera-controls-bar";
+    controls.innerHTML =
+      "<div style='display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;'>" +
+        "<button type='button' class='camera-btn camera-btn-start' id='btnToggleCamera'>" +
+          "📷 <span>Avvia Fotocamera</span>" +
+        "</button>" +
+        "<button type='button' class='camera-btn camera-btn-flip' id='btnFlipCamera' style='display:none;' title='Cambia Fotocamera (Fronte/Retro)'>" +
+          "🔄 <span>Inverti</span>" +
+        "</button>" +
+        "<select id='cameraSelect' style='display:none;' title='Seleziona dispositivo fotocamera'></select>" +
+      "</div>" +
+      "<div id='cameraStatusIndicator' style='font-size:0.75rem;color:#94a3b8;font-weight:700;display:flex;align-items:center;gap:0.3rem;'>" +
+        "<span style='display:inline-block;width:8px;height:8px;border-radius:50%;background:#94a3b8;'></span> Standby Penna Ottica" +
+      "</div>";
+
+    // Inserisci i comandi subito dopo il box del reader
+    var videoBox = readerDiv.closest(".scanner-video-box") || readerDiv;
+    if (videoBox.parentNode) {
+      videoBox.parentNode.insertBefore(controls, videoBox.nextSibling);
+    }
+
+    var self = this;
+    var toggleBtn = document.getElementById("btnToggleCamera");
+    var flipBtn = document.getElementById("btnFlipCamera");
+    var select = document.getElementById("cameraSelect");
+
+    if (toggleBtn) {
+      toggleBtn.addEventListener("click", function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (self.isScanning) {
+          self.stopScanner();
+        } else {
+          self.startScanner();
+        }
+      });
+    }
+
+    if (flipBtn) {
+      flipBtn.addEventListener("click", function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        self.flipCamera();
+      });
+    }
+
+    if (select) {
+      select.addEventListener("change", function(e) {
+        self.selectedCameraId = select.value;
+        if (self.isScanning) {
+          self.startScanner(self.selectedCameraId);
+        }
+      });
+    }
+
+    // Su smartphone/tablet avvia automaticamente la fotocamera se l'utente è pronto
+    var isMobileOrTablet = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                           (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
+    if (isMobileOrTablet) {
+      // Tenta avvio automatico silenzioso; se le policy del browser richiedono interazione utente, il pulsante è pronto
+      setTimeout(function() {
+        if (!self.isScanning) {
+          self.startScanner().catch(function(e) {
+            console.log("[VespaScanner] Avvio automatico fotocamera richiede tocco utente:", e.message || e);
+          });
+        }
+      }, 500);
+    }
+  }
+
+  async startScanner(preferredCameraId) {
+    var readerDiv = document.getElementById("reader");
+    if (!readerDiv) return;
+
+    if (typeof Html5Qrcode === "undefined") {
+      this.updateCameraStatus("⚠️ Modulo Html5Qrcode non caricato", "#f59e0b");
+      return;
+    }
+
+    var self = this;
+    var toggleBtn = document.getElementById("btnToggleCamera");
+    var flipBtn = document.getElementById("btnFlipCamera");
+    var camSelect = document.getElementById("cameraSelect");
+
+    // Se era già in scansione, ferma prima
+    if (this.isScanning && this.html5QrCode) {
+      try {
+        await this.html5QrCode.stop();
+        this.html5QrCode.clear();
+      } catch(e) {}
+      this.isScanning = false;
+    }
+
+    this.updateCameraStatus("⏳ Connessione fotocamera...", "#38bdf8");
+
+    try {
+      if (!this.html5QrCode) {
+        this.html5QrCode = new Html5Qrcode("reader");
+      }
+
+      // Enumerazione fotocamere disponibili
+      try {
+        var devices = await Html5Qrcode.getCameras();
+        if (devices && devices.length) {
+          this.availableCameras = devices;
+          if (camSelect) {
+            camSelect.innerHTML = devices.map(function(d, i) {
+              return "<option value='" + d.id + "'>" + (d.label || ("Camera " + (i + 1))) + "</option>";
+            }).join("");
+            if (devices.length > 1) {
+              camSelect.style.display = "inline-block";
+              if (flipBtn) flipBtn.style.display = "inline-flex";
+            }
+          }
+        }
+      } catch(devErr) {
+        console.warn("[VespaScanner] Enumerazione telecamere:", devErr);
+      }
+
+      // Configurazione ottimale per lettura veloce QR da smartphone e PC
+      var qrboxFunction = function(viewfinderWidth, viewfinderHeight) {
+        var minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+        var qrboxEdge = Math.floor(minEdge * 0.75);
+        return {
+          width: Math.max(qrboxEdge, 200),
+          height: Math.max(qrboxEdge, 200)
+        };
+      };
+
+      var scanConfig = {
+        fps: 15,
+        qrbox: qrboxFunction,
+        aspectRatio: 1.0,
+        formatsToSupport: [0] // Supporta QR Code e formati barcode principali
+      };
+
+      // Modalità di selezione telecamera: ID specifico > facingMode environment/user
+      var cameraSpec = null;
+      if (preferredCameraId) {
+        cameraSpec = { deviceId: { exact: preferredCameraId } };
+      } else if (this.selectedCameraId) {
+        cameraSpec = { deviceId: { exact: this.selectedCameraId } };
+      } else if (this.availableCameras && this.availableCameras.length === 1) {
+        cameraSpec = this.availableCameras[0].id;
+      } else {
+        cameraSpec = { facingMode: this.currentFacingMode || "environment" };
+      }
+
+      await this.html5QrCode.start(
+        cameraSpec,
+        scanConfig,
+        function(decodedText) {
+          // Debounce rapido per evitare doppi bip sullo stesso codice
+          var now = Date.now();
+          if (decodedText === self.lastScannedCode && (now - self.lastScanTime) < 2500) {
+            return;
+          }
+          self.lastScannedCode = decodedText;
+          self.lastScanTime = now;
+          self.onQrCodeScanned(decodedText);
+        },
+        function() {
+          // Frame senza QR, normale durante la ricerca
+        }
+      );
+
+      this.isScanning = true;
+
+      if (toggleBtn) {
+        toggleBtn.className = "camera-btn camera-btn-stop";
+        toggleBtn.innerHTML = "⏹ <span>Ferma Fotocamera</span>";
+      }
+
+      this.updateCameraStatus("🟢 Fotocamera ATTIVA (Inquadra QR)", "#4ade80");
+
+      if (camSelect && this.selectedCameraId) {
+        camSelect.value = this.selectedCameraId;
+      }
+
+    } catch(err) {
+      console.error("[VespaScanner] Errore startScanner:", err);
+      this.isScanning = false;
+
+      var errMsg = err.message || err.name || "Accesso negato";
+      if (/NotAllowedError|Permission/i.test(errMsg)) {
+        this.updateCameraStatus("❌ Permesso fotocamera negato nel browser", "#f87171");
+      } else if (/NotFoundError|DevicesNotFoundError/i.test(errMsg)) {
+        this.updateCameraStatus("ℹ️ Nessuna fotocamera rilevata (usa penna ottica)", "#94a3b8");
+      } else {
+        this.updateCameraStatus("⚠️ Errore fotocamera (" + errMsg + ")", "#fca5a5");
+      }
+
+      if (toggleBtn) {
+        toggleBtn.className = "camera-btn camera-btn-start";
+        toggleBtn.innerHTML = "📷 <span>Riprova Fotocamera</span>";
+      }
+    }
+  }
+
+  async stopScanner() {
+    var toggleBtn = document.getElementById("btnToggleCamera");
+    if (this.html5QrCode && this.isScanning) {
+      try {
+        await this.html5QrCode.stop();
+        this.html5QrCode.clear();
+      } catch(e) {
+        console.warn("[VespaScanner] Errore stop:", e);
+      }
+      this.isScanning = false;
+    }
+
+    if (toggleBtn) {
+      toggleBtn.className = "camera-btn camera-btn-start";
+      toggleBtn.innerHTML = "📷 <span>Avvia Fotocamera</span>";
+    }
+
+    this.updateCameraStatus("⚪ Fotocamera spenta (Penna ottica attiva)", "#94a3b8");
+    this.focusInput();
+  }
+
+  async flipCamera() {
+    this.currentFacingMode = (this.currentFacingMode === "environment") ? "user" : "environment";
+    this.selectedCameraId = null;
+    await this.startScanner();
+  }
+
+  updateCameraStatus(text, dotColor) {
+    var statusEl = document.getElementById("cameraStatusIndicator");
+    if (!statusEl) return;
+    dotColor = dotColor || "#94a3b8";
+    statusEl.innerHTML =
+      "<span style='display:inline-block;width:8px;height:8px;border-radius:50%;background:" + dotColor + ";'></span> " + text;
   }
 
   async populateParticipantDropdown() {
@@ -105,37 +358,6 @@ class VespaScanner {
         }
       };
     } catch(e) { console.warn("[VespaScanner] Dropdown not populated:", e); }
-  }
-
-  async startScanner() {
-    var readerDiv = document.getElementById("reader");
-    var startBtn = document.getElementById("startScanBtn");
-    var stopBtn = document.getElementById("stopScanBtn");
-    if (!readerDiv) return;
-    var self = this;
-    try {
-      this.html5QrCode = new Html5Qrcode("reader");
-      var config = { fps: 10, qrbox: { width: 250, height: 250 } };
-      await this.html5QrCode.start(
-        { facingMode: "environment" }, config,
-        function(d) { self.onQrCodeScanned(d); }, function() {}
-      );
-      this.isScanning = true;
-      if (startBtn) startBtn.style.display = "none";
-      if (stopBtn) stopBtn.style.display = "inline-flex";
-    } catch(err) { console.error(err); }
-  }
-
-  async stopScanner() {
-    var startBtn = document.getElementById("startScanBtn");
-    var stopBtn = document.getElementById("stopScanBtn");
-    if (this.html5QrCode && this.isScanning) {
-      await this.html5QrCode.stop();
-      this.html5QrCode.clear();
-      this.isScanning = false;
-    }
-    if (startBtn) startBtn.style.display = "inline-flex";
-    if (stopBtn) stopBtn.style.display = "none";
   }
 
   async onQrCodeScanned(decodedText) {
