@@ -477,9 +477,26 @@ class VespaScanner {
       return;
     }
 
-    // ── Check pagamento (solo accettazione) ──
-    if (mode === "ACCETTAZIONE" && p.statoPagamento === "NON_PAGATO") {
-      this.renderPaymentBlockedFeedback(p);
+    // ── Check pagamento universale su tutti i banchi (PAGATO vs NON_PAGATO / RICEVUTA_DA_VERIFICARE) ──
+    var isPaid = (p.statoPagamento === "PAGATO" || p.ricevutaPagamentoVerified === true);
+    if (!isPaid) {
+      var isAccettazione = (mode === "ACCETTAZIONE" || mode === "ACCETTAZIONE_SABATO" || mode === "ACCETTAZIONE_DOMENICA");
+      if (isAccettazione) {
+        // Solo all'Accettazione l'organizzatore può incassare in contanti o sbloccare
+        this.renderPaymentBlockedFeedback(p);
+      } else {
+        // Su TUTTI gli altri banchi (Gadget, Pasti, Aperitivo, Cena, Pranzo, Colazione): BLOCCO TOTALE SENZA SBLOCCO
+        var motivo = (p.statoPagamento === "RICEVUTA_DA_VERIFICARE")
+          ? "RICEVUTA IN SOSPESO DA VERIFICARE"
+          : "QUOTA NON SALDATA";
+
+        this.renderStatusFeedback(
+          "🛑 ACCESSO BLOCCATO — " + motivo + ": " + p.cognome + " " + p.nome + " deve prima regolarizzare o verificare l'iscrizione al Banco Accettazione.",
+          "danger",
+          p,
+          mode
+        );
+      }
       return;
     }
 
