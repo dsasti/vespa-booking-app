@@ -303,7 +303,7 @@ class VespaScanner {
 
       var activeSvcKey = modeToServiceKey[mode];
 
-      // Se c'è un servizio attivo, filtra SOLO i partecipanti che hanno quel servizio compreso nel loro pacchetto
+      // Filtro 1: Mantieni SOLO gli aventi diritto al pacchetto
       if (activeSvcKey && window.VespaPkg && typeof window.VespaPkg.participantHasService === 'function') {
         all = all.filter(function(r) {
           return window.VespaPkg.participantHasService(r, activeSvcKey);
@@ -316,6 +316,21 @@ class VespaScanner {
             : (window.VespaPkg ? window.VespaPkg.packageIncludesDomenica(r.modalitaPartecipazione) : (r.modalitaPartecipazione || '').toUpperCase().includes('DOMENICA') || (r.modalitaPartecipazione || '').toUpperCase().includes('FULL 2 GIORNI'));
         });
       }
+
+      // Filtro 2: ESCLUDI i partecipanti che hanno GIÀ SMARCATO/FRUITO questo specifico servizio
+      all = all.filter(function(r) {
+        if (mode === 'ACCETTAZIONE_SABATO') return !r.statoAccettazioneSabato;
+        if (mode === 'ACCETTAZIONE_DOMENICA') return !r.statoAccettazioneDomenica;
+        if (mode === 'ACCETTAZIONE') return !(r.accettazioneConclusa || r.statoAccettazioneSabato || r.statoAccettazioneDomenica);
+        if (mode === 'GADGET') return !(r.ritiroGadget || r.kitGadgetConsegnato);
+        if (mode === 'MERENDA') return !(r.merenda || r.merendaSabatoErogata);
+        if (mode === 'APERITIVO' || mode === 'APERITIVO_SAB') return !(r.aperitivo || r.aperitivoSabatoErogato);
+        if (mode === 'APERITIVO_DOM') return !(r.aperitivo || r.aperitivoDomenicaErogato);
+        if (mode === 'CENA') return !(r.cena || r.cenaSabatoErogato);
+        if (mode === 'COLAZIONE') return !r.colazioneDomenicaErogata;
+        if (mode === 'PRANZO') return !(r.pranzo || r.pranzoDomenicaErogato);
+        return true;
+      });
 
       all.sort(function(a, b) { return (a.cognome + ' ' + a.nome).localeCompare(b.cognome + ' ' + b.nome); });
       var self = this;
@@ -585,9 +600,8 @@ class VespaScanner {
       localStorage.setItem('vespa_db_sync_pulse', Date.now().toString());
     } catch(e) {}
 
-    fetch("/api/participant/update/" + p.id, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(p)
-    }).catch(function() {});
+    // Ricarica la lista a tendina per rimuovere all'istante chi è stato appena smarcato
+    this.populateParticipantDropdown();
 
     this.renderStatusFeedback(
       "\u2705 EROGATO: " + currentLabel + " convalidato per " + p.cognome + " " + p.nome + ".",
