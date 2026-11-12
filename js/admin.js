@@ -286,11 +286,13 @@ class VespaAdminDashboard {
         ? `<button class="btn btn-secondary btn-sm" onclick="window.vespaAdmin.togglePayment('${r.id}', 'NON_PAGATO')">🔄 Segna Non Pagato</button>`
         : `<button class="btn btn-success btn-sm" onclick="window.vespaAdmin.togglePayment('${r.id}', 'PAGATO')">✅ SEGNA PAGATO</button>`;
 
-      // Helper: bottone servizio con N.A. se non incluso nel pacchetto
-      const svcBtn = (serviceKey, field, alias, labelSì, labelNo, toggleKey) => {
+      // Helper: bottone servizio con N.A. se non incluso nel pacchetto e orario di erogazione se fruito
+      const svcBtn = (serviceKey, field, alias, labelSì, labelNo, toggleKey, timeField, timeAlias) => {
         if (!hasSvc(serviceKey)) return `<span style="color:var(--text-dim); font-size:0.8rem;">- Non Incluso -</span>`;
         const done = !!(r[field] || (alias && r[alias]));
-        return `<button class="btn ${done ? 'btn-success' : 'btn-secondary'} btn-sm" onclick="window.vespaAdmin.toggleService('${r.id}', '${toggleKey || field}')">${done ? labelSì : labelNo}</button>`;
+        const timeVal = done ? (r[timeField] || (timeAlias && r[timeAlias]) || '') : '';
+        const displayLabel = done ? (timeVal ? `${labelSì} (${timeVal})` : `${labelSì} (OK)`) : labelNo;
+        return `<button class="btn ${done ? 'btn-success' : 'btn-secondary'} btn-sm" onclick="window.vespaAdmin.toggleService('${r.id}', '${toggleKey || field}')">${displayLabel}</button>`;
       };
 
       // Colori tenui di riga per pacchetto/giorni di iscrizione (coerenti con il PDF)
@@ -357,27 +359,27 @@ class VespaAdminDashboard {
           <!-- GADGET (unico: sabato o domenica, non entrambe) -->
           <td>
             <button class="btn ${(r.ritiroGadget || r.kitGadgetConsegnato) ? 'btn-success' : 'btn-secondary'} btn-sm" onclick="window.vespaAdmin.toggleService('${r.id}', 'ritiroGadget')">
-              ${(r.ritiroGadget || r.kitGadgetConsegnato) ? 'RITIRATO' : 'DA CONSEGNARE'}
+              ${(r.ritiroGadget || r.kitGadgetConsegnato) ? `RITIRATO (${r.ritiroGadgetTimestamp || 'OK'})` : 'DA CONSEGNARE'}
             </button>
           </td>
 
           <!-- MERENDA SABATO -->
-          <td>${svcBtn('merendaSabato', 'merendaSabatoErogata', 'merenda', 'FRUITA', 'DA EROGARE', 'merenda')}</td>
+          <td>${svcBtn('merendaSabato', 'merendaSabatoErogata', 'merenda', 'FRUITA', 'DA EROGARE', 'merenda', 'merendaSabatoErogataTimestamp', 'merendaTimestamp')}</td>
 
           <!-- APERITIVO SABATO -->
-          <td>${svcBtn('aperitivoSabato', 'aperitivoSabatoErogato', null, 'FRUITO', 'DA EROGARE', 'aperitivoSabatoErogato')}</td>
+          <td>${svcBtn('aperitivoSabato', 'aperitivoSabatoErogato', null, 'FRUITO', 'DA EROGARE', 'aperitivoSabatoErogato', 'aperitivoSabatoErogatoTimestamp', 'aperitivoTimestamp')}</td>
 
           <!-- CENA SABATO -->
-          <td>${svcBtn('cena', 'cenaSabatoErogato', 'cena', 'FRUITA', 'DA EROGARE', 'cena')}</td>
+          <td>${svcBtn('cena', 'cenaSabatoErogato', 'cena', 'FRUITA', 'DA EROGARE', 'cena', 'cenaSabatoErogatoTimestamp', 'cenaTimestamp')}</td>
 
           <!-- COLAZIONE DOMENICA -->
-          <td>${svcBtn('colazioneDomenica', 'colazioneDomenicaErogata', null, 'FRUITA', 'DA EROGARE', 'colazioneDomenicaErogata')}</td>
+          <td>${svcBtn('colazioneDomenica', 'colazioneDomenicaErogata', null, 'FRUITA', 'DA EROGARE', 'colazioneDomenicaErogata', 'colazioneDomenicaErogataTimestamp')}</td>
 
           <!-- APERITIVO DOMENICA -->
-          <td>${svcBtn('aperitivoDomenica', 'aperitivoDomenicaErogato', null, 'FRUITO', 'DA EROGARE', 'aperitivoDomenicaErogato')}</td>
+          <td>${svcBtn('aperitivoDomenica', 'aperitivoDomenicaErogato', null, 'FRUITO', 'DA EROGARE', 'aperitivoDomenicaErogato', 'aperitivoDomenicaErogatoTimestamp', 'aperitivoTimestamp')}</td>
 
           <!-- PRANZO DOMENICA -->
-          <td>${svcBtn('pranzo', 'pranzoDomenicaErogato', 'pranzo', 'FRUITO', 'DA EROGARE', 'pranzo')}</td>
+          <td>${svcBtn('pranzo', 'pranzoDomenicaErogato', 'pranzo', 'FRUITO', 'DA EROGARE', 'pranzo', 'pranzoDomenicaErogatoTimestamp', 'pranzoTimestamp')}</td>
 
           <td>
             <div style="display:flex; gap:0.35rem; align-items:center; justify-content:center;">

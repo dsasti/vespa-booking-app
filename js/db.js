@@ -362,8 +362,53 @@ class VespaDB {
     return all.find(r => 
       (r.id && r.id.toUpperCase() === cleanId) || 
       (r.cognome && r.cognome.toUpperCase() === cleanId) || 
-      (r.tesseraVci && r.tesseraVci.toUpperCase() === cleanId)
+      (r.tesseraVci && r.tesseraVci.toUpperCase() === cleanId) ||
+      ((r.cognome + ' ' + r.nome).trim().toUpperCase() === cleanId) ||
+      ((r.nome + ' ' + r.cognome).trim().toUpperCase() === cleanId)
     ) || null;
+  }
+
+  async searchParticipants(query) {
+    if (!query) return [];
+    await this.ensureInit();
+    const cleanQuery = query.toString().trim();
+    if (!cleanQuery) return [];
+    const qUpper = cleanQuery.toUpperCase();
+    const all = await this.getAllRegistrations();
+
+    // 1. Corrispondenza esatta per ID o Tessera VCI
+    const exactId = all.find(r => 
+      (r.id && r.id.toUpperCase() === qUpper) ||
+      (r.tesseraVci && r.tesseraVci.toUpperCase() === qUpper)
+    );
+    if (exactId) return [exactId];
+
+    // 2. Corrispondenza esatta per Cognome + Nome o Nome + Cognome
+    const exactFullName = all.filter(r => {
+      const ful1 = `${r.cognome || ''} ${r.nome || ''}`.trim().toUpperCase();
+      const ful2 = `${r.nome || ''} ${r.cognome || ''}`.trim().toUpperCase();
+      return ful1 === qUpper || ful2 === qUpper;
+    });
+    if (exactFullName.length > 0) return exactFullName;
+
+    // 3. Corrispondenza esatta solo per Cognome
+    const exactCognome = all.filter(r => (r.cognome || '').trim().toUpperCase() === qUpper);
+    if (exactCognome.length > 0) return exactCognome;
+
+    // 4. Ricerca per token (parole multiple: es. 'Massano Ivan' o parti di testo)
+    const tokens = qUpper.split(/\s+/).filter(Boolean);
+    const tokenMatches = all.filter(r => {
+      const cog = (r.cognome || '').toUpperCase();
+      const nom = (r.nome || '').toUpperCase();
+      const id = (r.id || '').toUpperCase();
+      const club = (r.vespaClub || '').toUpperCase();
+      const vci = (r.tesseraVci || '').toUpperCase();
+      return tokens.every(tok => 
+        cog.includes(tok) || nom.includes(tok) || id.includes(tok) || club.includes(tok) || vci.includes(tok)
+      );
+    });
+
+    return tokenMatches;
   }
 
   async toggleServiceStatus(id, serviceKey) {

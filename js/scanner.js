@@ -364,42 +364,162 @@ class VespaScanner {
     if (!query) return;
     var container = document.getElementById("scannerResultContainer");
     if (!container) return;
-    var cleanQuery = query.toString().trim().toUpperCase();
+    var cleanQuery = query.toString().trim();
+    if (!cleanQuery) return;
+    var qUpper = cleanQuery.toUpperCase();
+
     try {
-      var record = null;
+      var all = [];
       if (window.vespaDB) {
         await window.vespaDB.ensureInit();
-        record = await window.vespaDB.getById(cleanQuery);
+        all = await window.vespaDB.getAllRegistrations();
       }
 
-      if (!record) {
-        try {
-          var response = await fetch("/api/participant/lookup?query=" + encodeURIComponent(cleanQuery));
-          if (response.ok) record = await response.json();
-        } catch(e) {}
-      }
-
-      if (!record) {
+      if ((!all || all.length === 0)) {
         var raw = localStorage.getItem("vespa_asti_registrations");
         if (raw) {
-          try {
-            var list = JSON.parse(raw);
-            record = list.find(function(r) {
-              return (r.id && r.id.toUpperCase() === cleanQuery) ||
-                     (r.cognome && r.cognome.toUpperCase() === cleanQuery) ||
-                     (r.tesseraVci && r.tesseraVci.toUpperCase() === cleanQuery);
-            });
-          } catch(e) {}
+          try { all = JSON.parse(raw); } catch(e) {}
         }
       }
 
-      if (!record) throw new Error("Non trovato");
-      this.currentParticipant = record;
-      await this.validateAndProcessRegistration(record);
+      if ((!all || all.length === 0)) {
+        try {
+          var resAll = await fetch("/api/registrations");
+          if (resAll.ok) all = await resAll.json();
+        } catch(e) {}
+      }
+
+      // 1. Corrispondenza precisa per ID o Tessera VCI
+      var exactIdMatch = (all || []).find(function(r) {
+        return (r.id && r.id.toUpperCase() === qUpper) ||
+               (r.tesseraVci && r.tesseraVci.toUpperCase() === qUpper);
+      });
+      if (exactIdMatch) {
+        this.currentParticipant = exactIdMatch;
+        await this.validateAndProcessRegistration(exactIdMatch);
+        return;
+      }
+
+      // 2. Corrispondenza esatta per Cognome + Nome o Nome + Cognome
+      var exactFullNameMatches = (all || []).filter(function(r) {
+        var ful1 = ((r.cognome || '') + ' ' + (r.nome || '')).trim().toUpperCase();
+        var ful2 = ((r.nome || '') + ' ' + (r.cognome || '')).trim().toUpperCase();
+        return ful1 === qUpper || ful2 === qUpper;
+      });
+      if (exactFullNameMatches.length === 1) {
+        this.currentParticipant = exactFullNameMatches[0];
+        await this.validateAndProcessRegistration(exactFullNameMatches[0]);
+        return;
+      } else if (exactFullNameMatches.length > 1) {
+        this.renderDisambiguationList(exactFullNameMatches, cleanQuery);
+        return;
+      }
+
+      // 3. Corrispondenza esatta solo per Cognome
+      var exactCognomeMatches = (all || []).filter(function(r) {
+        return (r.cognome || '').trim().toUpperCase() === qUpper;
+      });
+      if (exactCognomeMatches.length === 1) {
+        this.currentParticipant = exactCognomeMatches[0];
+        await this.validateAndProcessRegistration(exactCognomeMatches[0]);
+        return;
+      } else if (exactCognomeMatches.length > 1) {
+        this.renderDisambiguationList(exactCognomeMatches, cleanQuery);
+        return;
+      }
+
+      // 4. Ricerca per token (parole multiple: es. 'Massano Ivan' o parti di testo)
+      var tokens = qUpper.split(/\s+/).filter(Boolean);
+      var tokenMatches = (all || []).filter(function(r) {
+        var cog = (r.cognome || '').toUpperCase();
+        var nom = (r.nome || '').toUpperCase();
+        var id = (r.id || '').toUpperCase();
+        var vci = (r.tesseraVci || '').toUpperCase();
+        return tokens.every(function(tok) {
+          return cog.includes(tok) || nom.includes(tok) || id.includes(tok) || vci.includes(tok);
+        });
+      });
+
+      if (tokenMatches.length === 1) {
+        this.currentParticipant = tokenMatches[0];
+        await this.validateAndProcessRegistration(tokenMatches[0]);
+        return;
+      } else if (tokenMatches.length > 1) {
+        this.renderDisambiguationList(tokenMatches, cleanQuery);
+        return;
+      }
+
+      // Fallback API backend di ricerca se non trovato localmente
+      try {
+        var response = await fetch("/api/participant/lookup?query=" + encodeURIComponent(cleanQuery));
+        if (response.ok) {
+          var record = await response.json();
+          if (record && record.id) {
+            this.currentParticipant = record;
+            await this.validateAndProcessRegistration(record);
+            return;
+          }
+        }
+      } catch(e) {}
+
+      throw new Error("Non trovato");
 
     } catch(err) {
       this.renderStatusFeedback("\u274c Codice o Cognome non trovato nel database.", "danger");
     }
+  }
+
+  renderDisambiguationList(matches, originalQuery) {
+    var container = document.getElementById("scannerResultContainer");
+    if (!container) return;
+    this.playSuccessSound();
+
+    var mode = this.mode || '';
+    var isSab = (mode === 'ACCETTAZIONE_SABATO');
+    var isDom = (mode === 'ACCETTAZIONE_DOMENICA');
+
+    var cardsHtml = matches.map(function(m) {
+      var isPaid = (m.statoPagamento === 'PAGATO' || m.ricevutaPagamentoVerified === true);
+      var price = m.importoDovuto || 55;
+      var payTag = isPaid
+        ? "<span style='display:inline-block; padding:0.2rem 0.5rem; background:#DCFCE7; color:#15803D; font-size:0.75rem; font-weight:800; border-radius:6px;'>✅ PAGATO</span>"
+        : "<span style='display:inline-block; padding:0.2rem 0.5rem; background:#FEE2E2; color:#B91C1C; font-size:0.75rem; font-weight:800; border-radius:6px;'>❌ NON PAGATO (€ " + price + ")</span>";
+
+      var pkgName = (m.modalitaPartecipazione || '').split('-')[0].trim();
+
+      return "" +
+        "<div style='display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.6rem; padding:0.75rem 1rem; background:#FFF; border:1.5px solid #CBD5E1; border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,0.05);'>" +
+          "<div>" +
+            "<div style='font-size:1.05rem; font-weight:900; color:var(--vespa-blue-dark); text-transform:uppercase;'>" +
+              m.cognome + " <span style='font-weight:700; color:#334155;'>" + m.nome + "</span>" +
+            "</div>" +
+            "<div style='font-size:0.8rem; color:#64748B; margin-top:0.15rem;'>" +
+              "🛵 " + (m.vespaClub || 'Indipendente') + " • <span style='font-family:monospace; font-weight:700; color:var(--vespa-blue);'>" + m.id + "</span> • " + pkgName +
+            "</div>" +
+            "<div style='margin-top:0.3rem;'>" + payTag + "</div>" +
+          "</div>" +
+          "<button type='button' class='btn btn-primary' onclick=\"window.vespaScanner.lookupParticipant('" + m.id + "')\" style='padding:0.55rem 1.1rem; font-size:0.88rem; font-weight:800; white-space:nowrap;'>" +
+            "👉 Seleziona" +
+          "</button>" +
+        "</div>";
+    }).join("");
+
+    container.innerHTML =
+      "<div style='padding:1.25rem; background:#F8FAFC; border:2px solid var(--vespa-blue); border-radius:14px; box-shadow:0 4px 12px rgba(0,0,0,0.08);'>" +
+        "<div style='display:flex; align-items:center; gap:0.5rem; margin-bottom:0.75rem; padding-bottom:0.6rem; border-bottom:1.5px solid #CBD5E1;'>" +
+          "<span style='font-size:1.6rem;'>👥</span>" +
+          "<div>" +
+            "<h3 style='margin:0; font-size:1.1rem; font-weight:900; color:var(--vespa-blue-dark);'>Trovati " + matches.length + " partecipanti per \u00ab" + originalQuery + "\u00bb</h3>" +
+            "<p style='margin:0.15rem 0 0 0; font-size:0.82rem; color:#64748B;'>Seleziona il partecipante desiderato per convalidare l'operazione:</p>" +
+          "</div>" +
+        "</div>" +
+        "<div style='display:flex; flex-direction:column; gap:0.6rem; max-height:420px; overflow-y:auto; padding-right:0.2rem;'>" +
+          cardsHtml +
+        "</div>" +
+      "</div>";
+
+    var manualInput = document.getElementById("scannerManualInput");
+    if (manualInput) manualInput.value = "";
   }
 
   async forceAcceptance(id) {
