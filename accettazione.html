@@ -560,7 +560,9 @@
       closeGroupView: closeGroupView,
       toggleGroupParticipant: toggleGroupParticipant,
       markGroupPaid: markGroupPaid,
-      renderDynamicDayButtons: renderDynamicDayButtons
+      renderDynamicDayButtons: renderDynamicDayButtons,
+      getCurrentDayObj: function() { return currentDayObj; },
+      getCurrentDay: function() { return currentDay; }
     };
 
     document.addEventListener('DOMContentLoaded', function() {
@@ -615,7 +617,9 @@
         var dayCode = mode.replace('ACCETTAZIONE_', '').toUpperCase();
         var isSab = (dayCode === 'SABATO' || dayCode === 'GIORNO_1');
         var isDom = (dayCode === 'DOMENICA' || dayCode === 'GIORNO_2');
-        var dayLabel = (window.accettazioneApp && currentDayObj && currentDayObj.name) ? currentDayObj.name : (isSab ? 'Sabato' : (isDom ? 'Domenica' : dayCode));
+        var dayObj = (window.accettazioneApp && typeof window.accettazioneApp.getCurrentDayObj === 'function')
+          ? window.accettazioneApp.getCurrentDayObj() : null;
+        var dayLabel = (dayObj && dayObj.name) ? dayObj.name : (isSab ? 'Sabato' : (isDom ? 'Domenica' : dayCode));
 
         var alreadyDoneField = isSab ? 'statoAccettazioneSabato' : (isDom ? 'statoAccettazioneDomenica' : ('statoAccettazione_' + dayCode.toLowerCase()));
 
@@ -695,7 +699,9 @@
         var dayCode = mode.startsWith('ACCETTAZIONE_') ? mode.replace('ACCETTAZIONE_', '').toUpperCase() : '';
         var isSab = (dayCode === 'SABATO' || dayCode === 'GIORNO_1');
         var isDom = (dayCode === 'DOMENICA' || dayCode === 'GIORNO_2');
-        var dayLabel = (window.accettazioneApp && currentDayObj && currentDayObj.name) ? currentDayObj.name : (isSab ? 'Sabato' : (isDom ? 'Domenica' : dayCode));
+        var dayObj = (window.accettazioneApp && typeof window.accettazioneApp.getCurrentDayObj === 'function')
+          ? window.accettazioneApp.getCurrentDayObj() : null;
+        var dayLabel = (dayObj && dayObj.name) ? dayObj.name : (isSab ? 'Sabato' : (isDom ? 'Domenica' : dayCode));
 
         var timeString = new Date().toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' });
 
@@ -742,7 +748,9 @@
         var dayCode = mode.startsWith('ACCETTAZIONE_') ? mode.replace('ACCETTAZIONE_', '').toUpperCase() : '';
         var isSab = (dayCode === 'SABATO' || dayCode === 'GIORNO_1');
         var isDom = (dayCode === 'DOMENICA' || dayCode === 'GIORNO_2');
-        var dayLabel = (window.accettazioneApp && currentDayObj && currentDayObj.name) ? currentDayObj.name : (isSab ? 'Sabato' : (isDom ? 'Domenica' : dayCode));
+        var dayObj = (window.accettazioneApp && typeof window.accettazioneApp.getCurrentDayObj === 'function')
+          ? window.accettazioneApp.getCurrentDayObj() : null;
+        var dayLabel = (dayObj && dayObj.name) ? dayObj.name : (isSab ? 'Sabato' : (isDom ? 'Domenica' : dayCode));
 
         var timeString = new Date().toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' });
 
@@ -804,7 +812,9 @@
           });
 
           var self = this;
-          var dayText = (currentDayObj && currentDayObj.name) ? currentDayObj.name : dayCode;
+          var dayObj = (window.accettazioneApp && typeof window.accettazioneApp.getCurrentDayObj === 'function')
+            ? window.accettazioneApp.getCurrentDayObj() : null;
+          var dayText = (dayObj && dayObj.name) ? dayObj.name : dayCode;
           var labelText = dayText
             ? "-- Seleziona partecipante (" + dayText + " - " + all.length + " iscritti) --"
             : "-- Seleziona partecipante dall'elenco --";
