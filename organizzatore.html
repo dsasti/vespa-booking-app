@@ -58,16 +58,16 @@
         <div style="margin-bottom:1.5rem; border:1.5px solid #bfdbfe; border-radius:12px; overflow:hidden; background:#FFF;">
           <!-- Header collassabile -->
           <div style="background:linear-gradient(90deg,#1e3a8a 0%,#1d4ed8 100%); color:#FFF; padding:0.85rem 1.25rem; display:flex; justify-content:space-between; align-items:center; cursor:pointer; gap:1rem;"
-               onclick="(function(){ var b=document.getElementById('configPanelBody'); var ic=document.getElementById('configPanelIcon'); if(b.style.display==='none'){b.style.display='';ic.textContent='▲';}else{b.style.display='none';ic.textContent='▼';} })()">
+               onclick="(function(){ var b=document.getElementById('configPanelBody'); var ic=document.getElementById('configPanelIcon'); if(b.style.display==='none'){b.style.display='';ic.textContent='▲'; if(!b._initialized){b._initialized=true; window.vespaAdmin && window.vespaAdmin.switchConfigTab('evento'); window.vespaAdmin && window.vespaAdmin.loadPaymentConfig(); window.vespaAdmin && window.vespaAdmin.renderGadgetConfig();}}else{b.style.display='none';ic.textContent='▼';} })()">
             <div style="display:flex; align-items:center; gap:0.75rem;">
               <span style="font-size:1.2rem;">⚙️</span>
               <div>
                 <div style="font-weight:900; font-size:0.95rem; letter-spacing:0.3px;">Configurazione Evento</div>
-                <div style="font-size:0.78rem; opacity:0.85; margin-top:1px;">Pacchetti di iscrizione • Metodo di pagamento / IBAN</div>
+                <div style="font-size:0.78rem; opacity:0.85; margin-top:1px;">Nome evento • Pacchetti iscrizione • Gadget • Metodo di pagamento / IBAN</div>
               </div>
             </div>
             <div style="display:flex; align-items:center; gap:0.75rem;">
-              <button class="btn btn-sm" onclick="event.stopPropagation(); window.vespaPackagesUI.saveConfig(); window.vespaAdmin.savePaymentConfig();" style="background:rgba(255,255,255,0.2); color:#FFF; border:1.5px solid rgba(255,255,255,0.5); font-weight:800; white-space:nowrap;">💾 Salva tutto</button>
+              <button class="btn btn-sm" onclick="event.stopPropagation(); window.vespaPackagesUI.saveConfig(); window.vespaAdmin.savePaymentConfig(); window.vespaAdmin.saveEventConfig(); window.vespaAdmin.saveGadgetConfig();" style="background:rgba(255,255,255,0.2); color:#FFF; border:1.5px solid rgba(255,255,255,0.5); font-weight:800; white-space:nowrap;">💾 Salva tutto</button>
               <span id="configPanelIcon" style="font-size:0.9rem; opacity:0.85;">▼</span>
             </div>
           </div>
@@ -76,27 +76,175 @@
           <div id="configPanelBody" style="display:none;">
 
             <!-- TAB SELECTOR -->
-            <div style="display:flex; border-bottom:1.5px solid #e2e8f0; background:#f8fafc;">
+            <div style="display:flex; border-bottom:1.5px solid #e2e8f0; background:#f8fafc; flex-wrap:wrap;">
+              <button id="configTabBtnEvento" onclick="window.vespaAdmin.switchConfigTab('evento')"
+                style="flex:1; min-width:120px; padding:0.65rem 1rem; font-size:0.85rem; font-weight:800; border:none; border-bottom:3px solid #1d4ed8; background:transparent; color:#1d4ed8; cursor:pointer; transition:all 0.15s;">
+                📛 Nome Evento
+              </button>
               <button id="configTabBtnPacchetti" onclick="window.vespaAdmin.switchConfigTab('pacchetti')"
-                style="flex:1; padding:0.65rem 1rem; font-size:0.85rem; font-weight:800; border:none; border-bottom:3px solid #1d4ed8; background:transparent; color:#1d4ed8; cursor:pointer; transition:all 0.15s;">
+                style="flex:1; min-width:120px; padding:0.65rem 1rem; font-size:0.85rem; font-weight:800; border:none; border-bottom:3px solid transparent; background:transparent; color:#64748b; cursor:pointer; transition:all 0.15s;">
                 🎫 Pacchetti Iscrizione
               </button>
+              <button id="configTabBtnGadget" onclick="window.vespaAdmin.switchConfigTab('gadget')"
+                style="flex:1; min-width:120px; padding:0.65rem 1rem; font-size:0.85rem; font-weight:800; border:none; border-bottom:3px solid transparent; background:transparent; color:#64748b; cursor:pointer; transition:all 0.15s;">
+                🎁 Gadget
+              </button>
               <button id="configTabBtnPagamento" onclick="window.vespaAdmin.switchConfigTab('pagamento')"
-                style="flex:1; padding:0.65rem 1rem; font-size:0.85rem; font-weight:800; border:none; border-bottom:3px solid transparent; background:transparent; color:#64748b; cursor:pointer; transition:all 0.15s;">
+                style="flex:1; min-width:120px; padding:0.65rem 1rem; font-size:0.85rem; font-weight:800; border:none; border-bottom:3px solid transparent; background:transparent; color:#64748b; cursor:pointer; transition:all 0.15s;">
                 🏦 Metodo di Pagamento
               </button>
             </div>
 
-            <!-- TAB: PACCHETTI -->
-            <div id="configTabPacchetti" style="padding:1.25rem;">
-              <p style="font-size:0.82rem; color:var(--text-muted); margin:0 0 1rem 0;">
-                Attiva/disattiva i pacchetti visibili nella scheda prenotazione. Modifica i prezzi (le iscrizioni già effettuate mantengono il prezzo originale).
+            <!-- TAB: NOME EVENTO -->
+            <div id="configTabEvento" style="padding:1.25rem;">
+              <p style="font-size:0.82rem; color:var(--text-muted); margin:0 0 1.25rem 0;">
+                Personalizza il nome dell'evento visualizzato in tutte le pagine dell'app (modulo prenotazione, dashboard, ticket QR, scanner, ecc.). Questo ti permette di riutilizzare la stessa app per più eventi senza modificare il codice.
               </p>
-              <div id="packagesConfigGrid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:1rem;">
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:1rem; margin-bottom:1.25rem;">
+                <div>
+                  <label style="font-size:0.78rem; font-weight:800; color:var(--vespa-blue-dark); text-transform:uppercase; display:block; margin-bottom:0.35rem;">📛 Nome Evento (breve)</label>
+                  <input type="text" id="eventConfigNomeBreve" placeholder="Es. Raduno Nazionale Vespa 2026"
+                    style="width:100%; padding:0.55rem 0.8rem; border:1.5px solid #cbd5e1; border-radius:8px; font-size:0.95rem; font-weight:700; box-sizing:border-box; color:var(--vespa-blue-dark);">
+                  <div style="font-size:0.73rem; color:#94a3b8; margin-top:4px;">Usato in titoli e intestazioni principali.</div>
+                </div>
+                <div>
+                  <label style="font-size:0.78rem; font-weight:800; color:var(--vespa-blue-dark); text-transform:uppercase; display:block; margin-bottom:0.35rem;">🏢 Nome Organizzazione</label>
+                  <input type="text" id="eventConfigOrganizzazione" placeholder="Es. Vespa Club Asti A.s.D."
+                    style="width:100%; padding:0.55rem 0.8rem; border:1.5px solid #cbd5e1; border-radius:8px; font-size:0.95rem; font-weight:700; box-sizing:border-box; color:var(--vespa-blue-dark);">
+                  <div style="font-size:0.73rem; color:#94a3b8; margin-top:4px;">Nome del club o organizzazione che appare nei testi.</div>
+                </div>
+
+                <!-- CARICAMENTO LOGO EVENTO / CLUB (A FIANCO NOME ORGANIZZATORE) -->
+                <div>
+                  <label style="font-size:0.78rem; font-weight:800; color:var(--vespa-blue-dark); text-transform:uppercase; display:block; margin-bottom:0.35rem;">🖼️ Logo Evento / Club</label>
+                  <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+                    <div style="width:48px; height:48px; border-radius:8px; border:1.5px solid #cbd5e1; background:#f8fafc; display:flex; align-items:center; justify-content:center; overflow:hidden; flex-shrink:0;">
+                      <img id="eventConfigLogoPreview" src="https://primary.jwwb.nl/public/s/q/g/temp-ycombtvaxsaviqalrdpe/nuovo-frecce-high.png" alt="Logo preview" style="max-width:100%; max-height:100%; object-fit:contain;">
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:0.3rem;">
+                      <label class="btn btn-secondary btn-sm" style="cursor:pointer; margin:0; padding:0.4rem 0.75rem; font-size:0.8rem; font-weight:700; background:#0284c7; color:#FFF; border-color:#0369a1; display:inline-flex; align-items:center; gap:0.3rem;">
+                        📁 Carica Logo
+                        <input type="file" id="eventConfigLogoFile" accept="image/*" style="display:none;" onchange="window.vespaAdmin && window.vespaAdmin.handleLogoUpload(this)">
+                      </label>
+                      <button type="button" class="btn btn-sm" onclick="window.vespaAdmin && window.vespaAdmin.resetLogo()" style="padding:0.2rem 0.5rem; font-size:0.72rem; color:#dc2626; background:transparent; border:none; text-decoration:underline; cursor:pointer;">
+                        Ripristina logo default
+                      </button>
+                    </div>
+                  </div>
+                  <div style="font-size:0.73rem; color:#94a3b8; margin-top:4px;">Sostituisce il logo del Vespa Club Asti in tutta l'app.</div>
+                </div>
+
+                <!-- CARICAMENTO SFONDO PRENOTAZIONE ED OPACITÀ -->
+                <div style="grid-column:1/-1; background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:10px; padding:0.85rem;">
+                  <div style="font-size:0.78rem; font-weight:800; color:var(--vespa-blue-dark); text-transform:uppercase; margin-bottom:0.5rem; display:flex; align-items:center; gap:0.4rem;">
+                    🎨 Immagine di Sfondo Schermata di Prenotazione (Opzionale)
+                  </div>
+                  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px,1fr)); gap:1rem; align-items:center;">
+                    <div>
+                      <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+                        <div id="eventConfigBgPreviewBox" style="width:70px; height:48px; border-radius:8px; border:1.5px solid #cbd5e1; background:#fff; display:flex; align-items:center; justify-content:center; overflow:hidden; flex-shrink:0;">
+                          <span id="eventConfigBgEmptyLbl" style="font-size:0.7rem; color:#94a3b8; text-align:center;">Nessun sfondo</span>
+                          <img id="eventConfigBgPreview" src="" alt="Bg preview" style="display:none; width:100%; height:100%; object-fit:cover;">
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:0.3rem;">
+                          <label class="btn btn-secondary btn-sm" style="cursor:pointer; margin:0; padding:0.4rem 0.75rem; font-size:0.8rem; font-weight:700; background:#3b82f6; color:#FFF; border-color:#2563eb; display:inline-flex; align-items:center; gap:0.3rem;">
+                            🌄 Carica Sfondo
+                            <input type="file" id="eventConfigBgFile" accept="image/*" style="display:none;" onchange="window.vespaAdmin && window.vespaAdmin.handleBgUpload(this)">
+                          </label>
+                          <button type="button" class="btn btn-sm" onclick="window.vespaAdmin && window.vespaAdmin.removeBgImage()" style="padding:0.2rem 0.5rem; font-size:0.72rem; color:#dc2626; background:transparent; border:none; text-decoration:underline; cursor:pointer;">
+                            Rimuovi immagine sfondo
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <label for="eventConfigBgOpacity" style="font-size:0.75rem; font-weight:800; color:#334155; text-transform:uppercase; display:block; margin-bottom:0.25rem;">
+                        Opacità Sfondo: <span id="eventConfigBgOpacityVal" style="color:var(--vespa-blue); font-weight:900;">15%</span>
+                      </label>
+                      <input type="range" id="eventConfigBgOpacity" min="5" max="100" step="5" value="15"
+                        oninput="window.vespaAdmin && window.vespaAdmin.updateBgOpacity(this.value)"
+                        style="width:100%; cursor:pointer;">
+                      <div style="font-size:0.72rem; color:#94a3b8;">Consigliato tra 10% e 25% per mantenere la massima leggibilità dei campi.</div>
+                    </div>
+                  </div>
+                </div>
+                <div style="grid-column:1/-1;">
+                  <label style="font-size:0.78rem; font-weight:800; color:var(--vespa-blue-dark); text-transform:uppercase; display:block; margin-bottom:0.35rem;">📋 Descrizione / Sottotitolo evento</label>
+                  <input type="text" id="eventConfigDescrizione" placeholder="Es. Registrazione conducenti e passeggeri — Edizione 2026"
+                    style="width:100%; padding:0.55rem 0.8rem; border:1.5px solid #cbd5e1; border-radius:8px; font-size:0.9rem; font-weight:600; box-sizing:border-box;">
+                  <div style="font-size:0.73rem; color:#94a3b8; margin-top:4px;">Sottotitolo o descrizione breve mostrata nelle pagine di prenotazione.</div>
+                </div>
+                <!-- SEZIONE GIORNI DELL'EVENTO DINAMICI -->
+                <div style="grid-column:1/-1; background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:10px; padding:1rem;">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem; flex-wrap:wrap; gap:0.5rem;">
+                    <div>
+                      <div style="font-size:0.85rem; font-weight:800; color:var(--vespa-blue-dark); text-transform:uppercase; display:flex; align-items:center; gap:0.4rem;">
+                        📅 Giorni dell'Evento (Personalizzabile per 1, 2, 3 o più giorni)
+                      </div>
+                      <div style="font-size:0.75rem; color:#64748b; margin-top:2px;">
+                        Configura il numero di giornate del raduno. I giorni impostati qui appariranno automaticamente in Accettazione, Consegna Pasti, Pacchetti e Statistiche.
+                      </div>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="window.vespaAdmin && window.vespaAdmin.addEventDay()" style="background:#0284c7; color:#FFF; font-weight:700; border-color:#0369a1; padding:0.35rem 0.75rem; font-size:0.8rem;">
+                      ➕ Aggiungi Giorno
+                    </button>
+                  </div>
+
+                  <!-- Lista dinamica delle giornate -->
+                  <div id="eventDaysConfigList" style="display:flex; flex-direction:column; gap:0.6rem;">
+                    <!-- Generato dinamicamente da JS -->
+                  </div>
+
+                  <!-- Campi hidden per retrocompatibilità con vecchi moduli se necessario -->
+                  <input type="hidden" id="eventConfigDataSabato">
+                  <input type="hidden" id="eventConfigDataDomenica">
+                </div>
+                <div style="grid-column:1/-1;">
+                  <label style="font-size:0.78rem; font-weight:800; color:var(--vespa-blue-dark); text-transform:uppercase; display:block; margin-bottom:0.35rem;">📍 Luogo Evento</label>
+                  <input type="text" id="eventConfigLuogo" placeholder="Es. Asti (AT) — Piazza Alfieri"
+                    style="width:100%; padding:0.55rem 0.8rem; border:1.5px solid #cbd5e1; border-radius:8px; font-size:0.9rem; font-weight:600; box-sizing:border-box;">
+                </div>
+              </div>
+              <!-- Anteprima live -->
+              <div style="background:#EFF6FF; border:2px solid #bfdbfe; border-radius:10px; padding:1rem 1.25rem; font-size:0.88rem; color:#1e293b;">
+                <div style="font-weight:800; color:#1e3a8a; margin-bottom:0.6rem; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.5px;">👁 Anteprima — come apparirà:</div>
+                <div style="font-weight:900; font-size:1.15rem; color:var(--vespa-blue-dark);" id="eventPrevNome">—</div>
+                <div style="font-size:0.82rem; color:#64748b; margin-top:4px;" id="eventPrevOrg">—</div>
+                <div style="font-size:0.82rem; color:#64748b; margin-top:2px;" id="eventPrevDesc">—</div>
+                <div style="margin-top:0.5rem; font-size:0.82rem; color:#334155; display:flex; gap:1rem; flex-wrap:wrap;" id="eventPrevDaysContainer">
+                  <span>📅 <span id="eventPrevSab">—</span></span>
+                  <span>📅 <span id="eventPrevDom">—</span></span>
+                  <span>📍 <span id="eventPrevLuogo">—</span></span>
+                </div>
+              </div>
+              <div style="margin-top:0.75rem; padding:0.65rem 0.9rem; background:#F0FDF4; border:1px solid #86EFAC; border-radius:8px; font-size:0.82rem; color:#14532D;">
+                ℹ️ <strong>Nota:</strong> Le modifiche al nome evento vengono applicate a tutte le pagine dell'app. Clicca <strong>💾 Salva tutto</strong> in cima al pannello per confermare.
+              </div>
+            </div>
+
+            <!-- TAB: PACCHETTI -->
+            <div id="configTabPacchetti" style="display:none; padding:1.25rem;">
+              <p style="font-size:0.82rem; color:var(--text-muted); margin:0 0 1rem 0;">
+                Attiva/disattiva i pacchetti visibili nella scheda prenotazione. Modifica prezzi, nomi e servizi inclusi (le iscrizioni già effettuate mantengono il prezzo originale).
+              </p>
+              <div id="packagesConfigGrid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:1rem;">
                 <!-- Generato da JS -->
               </div>
               <div style="margin-top:1rem; padding:0.65rem 0.9rem; background:#FEF3C7; border:1px solid #FCD34D; border-radius:8px; font-size:0.82rem; color:#92400E;">
                 ⚠️ <strong>Nota:</strong> Disattivare un pacchetto lo nasconde solo nei nuovi moduli di iscrizione. Le iscrizioni già effettuate rimangono invariate nel database.
+              </div>
+            </div>
+
+            <!-- TAB: GADGET -->
+            <div id="configTabGadget" style="display:none; padding:1.25rem;">
+              <p style="font-size:0.82rem; color:var(--text-muted); margin:0 0 1.25rem 0;">
+                Gestisci i gadget dell'evento: attivali o disattivali singolarmente, personalizza il nome e il tipo. Se un gadget è disattivato, non comparirà nelle operazioni di distribuzione e non verrà richiesto nelle prenotazioni.
+              </p>
+              <div id="gadgetConfigGrid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px,1fr)); gap:1rem;">
+                <!-- Generato da JS -->
+              </div>
+              <div style="margin-top:1rem; padding:0.65rem 0.9rem; background:#FEF3C7; border:1px solid #FCD34D; border-radius:8px; font-size:0.82rem; color:#92400E;">
+                ⚠️ <strong>Nota:</strong> Disattivare un gadget lo nasconde nelle schermate di distribuzione. I dati già registrati restano invariati.
               </div>
             </div>
 

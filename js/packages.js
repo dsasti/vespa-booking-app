@@ -93,6 +93,31 @@ function getBadgeHtml(pkgOrId) {
 }
 
 /**
+ * Helper per leggere le giornate dell'evento configurate (con fallback predefinito Sabato/Domenica).
+ */
+function getEventConfigDays() {
+  try {
+    const raw = localStorage.getItem('vespa_event_config');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed.giorni) && parsed.giorni.length > 0) {
+        return parsed.giorni;
+      }
+      if (parsed.dataSabato || parsed.dataDomenica) {
+        return [
+          { id: 'giorno_1', code: 'SABATO', name: 'Sabato', date: parsed.dataSabato || 'Sabato 20 Settembre 2026', icon: '🌙' },
+          { id: 'giorno_2', code: 'DOMENICA', name: 'Domenica', date: parsed.dataDomenica || 'Domenica 21 Settembre 2026', icon: '☀️' }
+        ];
+      }
+    }
+  } catch(e) {}
+  return [
+    { id: 'giorno_1', code: 'SABATO', name: 'Sabato', date: 'Sabato 20 Settembre 2026', icon: '🌙' },
+    { id: 'giorno_2', code: 'DOMENICA', name: 'Domenica', date: 'Domenica 21 Settembre 2026', icon: '☀️' }
+  ];
+}
+
+/**
  * Mappa servizio-ID → campo DB effettivo (canonical)
  * Usata per leggere/scrivere correttamente sul record partecipante.
  */
@@ -111,7 +136,7 @@ const PKG_CONFIG_KEY = 'vespa_packages_config';
 
 /**
  * Legge la configurazione corrente dall'organizzatore.
- * Ritorna array di { id, active, price } con fallback ai default.
+ * Ritorna array di { id, active, price, customLabel, customServices } con fallback ai default.
  */
 function loadPackagesConfig() {
   try {
@@ -124,12 +149,14 @@ function loadPackagesConfig() {
         return {
           id: pkg.id,
           active: override ? override.active : true,
-          price: (override && override.price != null) ? override.price : pkg.defaultPrice
+          price: (override && override.price != null) ? override.price : pkg.defaultPrice,
+          customLabel: (override && override.customLabel) ? override.customLabel : null,
+          customServices: (override && override.customServices) ? override.customServices : null
         };
       });
     }
   } catch (e) {}
-  return VESPA_PACKAGES_DEFAULT.map(pkg => ({ id: pkg.id, active: true, price: pkg.defaultPrice }));
+  return VESPA_PACKAGES_DEFAULT.map(pkg => ({ id: pkg.id, active: true, price: pkg.defaultPrice, customLabel: null, customServices: null }));
 }
 
 /**
@@ -144,7 +171,8 @@ function savePackagesConfig(config) {
 }
 
 /**
- * Ritorna i pacchetti attivi come array di oggetti completi { ...pkg, price }
+ * Ritorna i pacchetti attivi come array di oggetti completi { ...pkg, price, label, services }
+ * Se l'organizzatore ha personalizzato il nome o i servizi, usa quelli.
  */
 function getActivePackages() {
   const config = loadPackagesConfig();
@@ -155,18 +183,28 @@ function getActivePackages() {
     })
     .map(pkg => {
       const cfg = config.find(c => c.id === pkg.id);
-      return { ...pkg, price: cfg ? cfg.price : pkg.defaultPrice };
+      return {
+        ...pkg,
+        price:    cfg ? cfg.price    : pkg.defaultPrice,
+        label:    (cfg && cfg.customLabel)    ? cfg.customLabel    : pkg.label,
+        services: (cfg && cfg.customServices) ? cfg.customServices : pkg.services
+      };
     });
 }
 
 /**
- * Dato un id pacchetto, ritorna l'oggetto completo con prezzo corrente.
+ * Dato un id pacchetto, ritorna l'oggetto completo con prezzo, nome e servizi correnti.
  */
 function getPackageById(id) {
   const cfg = loadPackagesConfig().find(c => c.id === id);
   const pkg = VESPA_PACKAGES_DEFAULT.find(p => p.id === id);
   if (!pkg) return null;
-  return { ...pkg, price: cfg ? cfg.price : pkg.defaultPrice };
+  return {
+    ...pkg,
+    price:    cfg ? cfg.price    : pkg.defaultPrice,
+    label:    (cfg && cfg.customLabel)    ? cfg.customLabel    : pkg.label,
+    services: (cfg && cfg.customServices) ? cfg.customServices : pkg.services
+  };
 }
 
 /**
@@ -252,6 +290,37 @@ function packageIncludesDomenica(modalitaStr) {
   return upper.includes('DOMENICA') || upper.includes('FULL 2 GIORNI') || upper.includes('COMPLETA');
 }
 
+/**
+ * Verifica se la modalità/pacchetto include la partecipazione a un giorno specifico (per id, codice o nome)
+ */
+function packageIncludesDay(modalitaStr, dayIdentifier) {
+  if (!dayIdentifier) return true;
+  const target = dayIdentifier.toString().toUpperCase();
+  const pkg = resolvePackageFromRegistration(modalitaStr);
+  const upper = (modalitaStr || '').toUpperCase();
+
+  // Se il pacchetto è COMPLETA include sempre tutti i giorni
+  if (upper.includes('COMPLETA') || upper.includes('FULL 2 GIORNI') || (pkg && pkg.id === 'COMPLETA')) {
+    return true;
+  }
+
+  // Se il target è Sabato o giorno_1
+  if (target === 'SABATO' || target === 'GIORNO_1' || target === 'GIORNO 1') {
+    return packageIncludesSabato(modalitaStr);
+  }
+
+  // Se il target è Domenica o giorno_2
+  if (target === 'DOMENICA' || target === 'GIORNO_2' || target === 'GIORNO 2') {
+    return packageIncludesDomenica(modalitaStr);
+  }
+
+  // Per giorni addizionali (es. giorno_3, Venerdì, Lunedì) controlla se il nome o id del giorno è nei giorni o stringa
+  if (upper.includes(target)) return true;
+
+  // Fallback sicuro
+  return true;
+}
+
 // Rende disponibili globalmente
 window.VespaPkg = {
   PACKAGES: VESPA_PACKAGES_DEFAULT,
@@ -266,7 +335,9 @@ window.VespaPkg = {
   resolvePackageFromRegistration,
   participantHasService,
   packageIncludesSabato,
-  packageIncludesDomenica
+  packageIncludesDomenica,
+  packageIncludesDay,
+  getEventConfigDays
 };
 
 /**
@@ -283,16 +354,23 @@ window.vespaPackagesUI = {
     if (!grid) return;
 
     const config = loadPackagesConfig();
+    const allServiceKeys = Object.keys(SERVICE_DB_FIELDS);
 
     grid.innerHTML = VESPA_PACKAGES_DEFAULT.map(pkg => {
-      const cfg = config.find(c => c.id === pkg.id) || { active: true, price: pkg.defaultPrice };
+      const cfg = config.find(c => c.id === pkg.id) || { active: true, price: pkg.defaultPrice, customLabel: null, customServices: null };
       const isActive = cfg.active !== false;
       const currentPrice = (cfg.price !== undefined && cfg.price !== null && !isNaN(cfg.price)) ? Number(cfg.price) : pkg.defaultPrice;
+      const currentLabel = cfg.customLabel || pkg.label;
+      const currentServices = cfg.customServices || pkg.services;
 
-      // Badge dei servizi inclusi
-      const servicesBadges = pkg.services.map(s => {
-        const info = SERVICE_DB_FIELDS[s];
-        return `<span style="display:inline-block; font-size:0.75rem; background:#F1F5F9; color:#1E293B; border:1px solid #CBD5E1; padding:0.25rem 0.55rem; border-radius:6px; margin:2px 3px 2px 0; font-weight:600;">${info ? info.label : s}</span>`;
+      // Checkbox servizi
+      const servicesCheckboxes = allServiceKeys.map(sKey => {
+        const info = SERVICE_DB_FIELDS[sKey];
+        const checked = currentServices.includes(sKey);
+        return `<label style="display:flex; align-items:center; gap:0.4rem; font-size:0.8rem; font-weight:600; color:#1E293B; cursor:pointer; padding:0.25rem 0.5rem; border-radius:6px; border:1px solid ${checked ? '#86EFAC' : '#E2E8F0'}; background:${checked ? '#F0FDF4' : '#F8FAFC'}; white-space:nowrap;">
+          <input type="checkbox" id="pkg-svc-${pkg.id}-${sKey}" ${checked ? 'checked' : ''} style="accent-color:#10B981; cursor:pointer;">
+          ${info ? info.label : sKey}
+        </label>`;
       }).join('');
 
       return `
@@ -300,26 +378,37 @@ window.vespaPackagesUI = {
           <div>
             <!-- Intestazione Pacchetto -->
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:0.5rem; margin-bottom:0.75rem;">
-              <h3 style="margin:0; font-size:1.1rem; font-weight:800; color:var(--vespa-blue-dark); display:flex; align-items:center; gap:0.5rem; line-height:1.3;">
-                <span>${pkg.badgeSvg}</span> ${pkg.label}
+              <h3 style="margin:0; font-size:1rem; font-weight:800; color:var(--vespa-blue-dark); display:flex; align-items:center; gap:0.5rem; line-height:1.3;">
+                <span>${pkg.badgeSvg}</span>
+                <span style="font-size:0.78rem; opacity:0.65;">${pkg.id}</span>
               </h3>
               <span style="font-size:0.75rem; font-weight:800; padding:0.25rem 0.65rem; border-radius:999px; white-space:nowrap; background:${isActive ? '#DCFCE7' : '#FEE2E2'}; color:${isActive ? '#15803D' : '#B91C1C'}; border:1px solid ${isActive ? '#86EFAC' : '#FCA5A5'};">
                 ${isActive ? '✅ ATTIVO' : '⛔ DISATTIVATO'}
               </span>
             </div>
 
-            <!-- Servizi Inclusi -->
-            <div style="margin-bottom:1rem;">
+            <!-- Nome personalizzabile -->
+            <div style="margin-bottom:0.75rem;">
+              <label for="pkg-label-${pkg.id}" style="font-size:0.72rem; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:0.3rem;">
+                📛 Nome Pacchetto
+              </label>
+              <input type="text" id="pkg-label-${pkg.id}" value="${currentLabel.replace(/"/g, '&quot;')}"
+                placeholder="${pkg.label}"
+                style="width:100%; padding:0.45rem 0.7rem; border:1.5px solid #cbd5e1; border-radius:8px; font-size:0.88rem; font-weight:700; box-sizing:border-box; color:var(--vespa-blue-dark);">
+            </div>
+
+            <!-- Servizi Inclusi (checkboxes editabili) -->
+            <div style="margin-bottom:0.75rem;">
               <div style="font-size:0.72rem; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:0.4rem;">
-                Servizi Inclusi nel Pacchetto:
+                ✅ Servizi Inclusi nel Pacchetto:
               </div>
-              <div style="line-height:1.8;">${servicesBadges}</div>
+              <div style="display:flex; flex-wrap:wrap; gap:0.35rem; line-height:1.8;">${servicesCheckboxes}</div>
             </div>
           </div>
 
           <!-- Sezione Controlli Organizzatore -->
           <div style="border-top:1px solid #E2E8F0; padding-top:1rem; margin-top:0.75rem; display:flex; flex-direction:column; gap:0.85rem;">
-            
+
             <!-- Tasto Attiva / Disattiva nelle Prenotazioni -->
             <div style="display:flex; align-items:center; justify-content:space-between; background:#F8FAFC; padding:0.6rem 0.85rem; border-radius:10px; border:1px solid #E2E8F0;">
               <div>
@@ -385,16 +474,30 @@ window.vespaPackagesUI = {
   saveConfig() {
     const config = [];
     VESPA_PACKAGES_DEFAULT.forEach(pkg => {
-      const toggle = document.getElementById(`pkg-toggle-${pkg.id}`);
+      const toggle   = document.getElementById(`pkg-toggle-${pkg.id}`);
       const priceInput = document.getElementById(`pkg-price-${pkg.id}`);
+      const labelInput = document.getElementById(`pkg-label-${pkg.id}`);
       const active = toggle ? toggle.checked : true;
-      const price = priceInput ? (parseInt(priceInput.value, 10) || pkg.defaultPrice) : pkg.defaultPrice;
-      config.push({ id: pkg.id, active, price });
+      const price  = priceInput ? (parseInt(priceInput.value, 10) || pkg.defaultPrice) : pkg.defaultPrice;
+      const customLabel = labelInput ? (labelInput.value.trim() || null) : null;
+      // Leggi servizi dalle checkbox
+      const customServices = Object.keys(SERVICE_DB_FIELDS).filter(sKey => {
+        const cb = document.getElementById(`pkg-svc-${pkg.id}-${sKey}`);
+        return cb ? cb.checked : pkg.services.includes(sKey);
+      });
+      const servicesChanged = JSON.stringify(customServices.sort()) !== JSON.stringify([...pkg.services].sort());
+      config.push({
+        id: pkg.id,
+        active,
+        price,
+        customLabel: customLabel !== pkg.label ? customLabel : null,
+        customServices: servicesChanged ? customServices : null
+      });
     });
     savePackagesConfig(config);
     this.render();
     if (window.app && window.app.showToast) {
-      window.app.showToast('💾 Configurazione pacchetti e quote salvata con successo!', 'success');
+      window.app.showToast('💾 Configurazione pacchetti, nomi e servizi salvata con successo!', 'success');
     } else {
       alert('Configurazione pacchetti e quote salvata con successo!');
     }

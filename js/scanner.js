@@ -1,5 +1,5 @@
 /**
- * Vespa Club Asti A.s.D. - Suite Gestione Eventi Cloud
+ * Vespa Club Asti A.s.D. - Gestione Eventi Cloud
  * Logica centrale automatizzata per il riconoscimento banchi e smarcamento istantaneo.
  */
 

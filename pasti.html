@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vespa Club Asti - Pasti e Aperitivi</title>
-  <meta name="description" content="Banco Pasti e Aperitivi — smarcamento prestazioni raduno Vespa Club Asti A.s.D.">
+  <title>Vespa Club Asti - Consegna Pasti</title>
+  <meta name="description" content="Banco Consegna Pasti — smarcamento prestazioni raduno Vespa Club Asti A.s.D.">
   <link rel="stylesheet" href="css/style.css">
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
@@ -139,7 +139,7 @@
     <div class="brand brand-servizi" style="cursor:default;">
       <img src="https://primary.jwwb.nl/public/s/q/g/temp-ycombtvaxsaviqalrdpe/nuovo-frecce-high.png" alt="Vespa Club Asti Logo" class="brand-logo">
       <span>VESPA CLUB ASTI A.s.D.</span>
-      <span class="brand-badge brand-badge-servizi" id="navBadge">🍽️ PASTI &amp; APERITIVI</span>
+      <span class="brand-badge brand-badge-servizi" id="navBadge">🍽️ CONSEGNA PASTI</span>
     </div>
   </nav>
 
@@ -147,14 +147,14 @@
     <div class="card">
       <div class="card-header">
         <div>
-          <h1 class="card-title" id="mainTitle">🍽️ Pasti e Aperitivi</h1>
+          <h1 class="card-title" id="mainTitle">🍽️ Consegna Pasti</h1>
           <p class="card-subtitle">Seleziona il giorno e la prestazione da erogare, poi usa il lettore ottico o cerca il partecipante.</p>
         </div>
       </div>
 
-      <!-- STEP 1: Giorno -->
-      <div class="day-selector">
-        <button class="day-btn" id="btnSabato"   onclick="window.pastiApp.selectDay('SABATO')">🌙 Sabato</button>
+      <!-- STEP 1: Giorno Dinamico -->
+      <div class="day-selector" id="pastiDayButtonsContainer">
+        <button class="day-btn" id="btnSabato" onclick="window.pastiApp.selectDay('SABATO')">🌙 Sabato</button>
         <button class="day-btn" id="btnDomenica" onclick="window.pastiApp.selectDay('DOMENICA')">☀️ Domenica</button>
       </div>
 
@@ -226,7 +226,7 @@
 
   <script>
   (function() {
-    var SERVICES = {
+    var DEFAULT_SERVICES = {
       SABATO:   [
         { mode: 'MERENDA',       emoji: '🧁', label: 'Merenda'   },
         { mode: 'APERITIVO_SAB', emoji: '🍹', label: 'Aperitivo' },
@@ -248,24 +248,68 @@
       PRANZO:        { emoji:'🍝', dayLabel:'Domenica', label:'Pranzo'    }
     };
 
+    var currentSelectedDayCode = null;
+
+    function renderDynamicDayButtons() {
+      var container = document.getElementById('pastiDayButtonsContainer');
+      if (!container) return;
+      var eventDays = (window.VespaPkg && typeof window.VespaPkg.getEventConfigDays === 'function')
+        ? window.VespaPkg.getEventConfigDays()
+        : [
+            { id: 'giorno_1', code: 'SABATO', name: 'Sabato', icon: '🌙' },
+            { id: 'giorno_2', code: 'DOMENICA', name: 'Domenica', icon: '☀️' }
+          ];
+
+      container.innerHTML = eventDays.map(function(d, idx) {
+        var dayCode = d.code || (idx === 0 ? 'SABATO' : (idx === 1 ? 'DOMENICA' : ('GIORNO_' + (idx + 1))));
+        var icon = d.icon || (idx === 0 ? '🌙' : (idx === 1 ? '☀️' : '🏁'));
+        return '<button class="day-btn" id="pastiBtnDay_' + dayCode + '" onclick="window.pastiApp.selectDay(\'' + dayCode + '\')">' +
+          icon + ' ' + (d.name || ('Giorno ' + (idx + 1))) +
+        '</button>';
+      }).join('');
+    }
+
     function selectDay(day) {
+      currentSelectedDayCode = day;
+      var eventDays = (window.VespaPkg && typeof window.VespaPkg.getEventConfigDays === 'function')
+        ? window.VespaPkg.getEventConfigDays()
+        : [
+            { id: 'giorno_1', code: 'SABATO', name: 'Sabato', icon: '🌙' },
+            { id: 'giorno_2', code: 'DOMENICA', name: 'Domenica', icon: '☀️' }
+          ];
+      var currentDayObj = eventDays.find(function(d) {
+        return (d.code && d.code.toUpperCase() === day.toUpperCase()) ||
+               (d.name && d.name.toUpperCase() === day.toUpperCase()) ||
+               (d.id && d.id.toUpperCase() === day.toUpperCase());
+      }) || { name: day, code: day, icon: '📅' };
+
       // Toggle day buttons
-      document.getElementById('btnSabato').className   = 'day-btn' + (day === 'SABATO'   ? ' active-sabato'   : '');
-      document.getElementById('btnDomenica').className = 'day-btn' + (day === 'DOMENICA' ? ' active-domenica' : '');
+      var allBtns = document.querySelectorAll('#pastiDayButtonsContainer .day-btn');
+      allBtns.forEach(function(b) {
+        b.classList.remove('active-sabato', 'active-domenica');
+        if (b.id === 'pastiBtnDay_' + day) {
+          b.classList.add(day === 'DOMENICA' ? 'active-domenica' : 'active-sabato');
+        }
+      });
 
       // Show service row
       document.getElementById('serviceSelectorWrapper').style.display = 'block';
       document.getElementById('initialPrompt').style.display = 'none';
 
-      // Build service buttons
+      // Build service buttons per questo giorno
       var row = document.getElementById('serviceButtonsRow');
       row.innerHTML = '';
-      SERVICES[day].forEach(function(svc) {
+      var servicesForDay = DEFAULT_SERVICES[day] || [
+        { mode: 'APERITIVO_' + day, emoji: '🍹', label: 'Aperitivo ' + currentDayObj.name },
+        { mode: 'PRANZO_' + day,    emoji: '🍝', label: 'Pasto / Pranzo ' + currentDayObj.name }
+      ];
+
+      servicesForDay.forEach(function(svc) {
         var btn = document.createElement('button');
         btn.className = 'service-btn';
         btn.setAttribute('data-mode', svc.mode);
         btn.innerHTML = svc.emoji + ' ' + svc.label;
-        btn.onclick = function() { selectMode(svc.mode); };
+        btn.onclick = function() { selectMode(svc.mode, currentDayObj); };
         row.appendChild(btn);
       });
 
@@ -282,8 +326,12 @@
       }
     }
 
-    function selectMode(mode) {
-      var meta = MODE_META[mode];
+    function selectMode(mode, dayObj) {
+      var meta = MODE_META[mode] || {
+        emoji: '🍽️',
+        label: mode.replace(/_/g, ' '),
+        dayLabel: dayObj ? dayObj.name : 'Evento'
+      };
 
       // Active on buttons
       document.querySelectorAll('.service-btn').forEach(function(b) {
@@ -332,7 +380,15 @@
       }
     }
 
-    window.pastiApp = { selectDay: selectDay, selectMode: selectMode };
+    window.pastiApp = {
+      selectDay: selectDay,
+      selectMode: selectMode,
+      renderDynamicDayButtons: renderDynamicDayButtons
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
+      renderDynamicDayButtons();
+    });
   })();
   </script>
 

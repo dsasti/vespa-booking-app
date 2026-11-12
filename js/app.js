@@ -36,7 +36,41 @@ class VespaApp {
       });
     });
 
+    // Applica configurazione evento globale (Logo e Organizzazione nelle barre di navigazione)
+    this.applyGlobalEventBranding();
+
     console.log("Vespa Club Asti System Controller Pronto!");
+  }
+
+  applyGlobalEventBranding() {
+    try {
+      const raw = localStorage.getItem('vespa_event_config');
+      if (!raw) return;
+      const cfg = JSON.parse(raw);
+
+      // Aggiorna logo del club in tutte le pagine
+      if (cfg.logoUrl) {
+        document.querySelectorAll('img.brand-logo, .brand img, .card img[alt*="Vespa Club Asti"]').forEach(img => {
+          img.src = cfg.logoUrl;
+        });
+      }
+
+      // Aggiorna nome organizzazione nel brand delle navbar
+      if (cfg.organizzazione && cfg.organizzazione.trim()) {
+        const orgName = cfg.organizzazione.trim();
+        document.querySelectorAll('.brand, .navbar .brand').forEach(brandEl => {
+          Array.from(brandEl.childNodes).forEach(node => {
+            if (node.nodeType === Node.TEXT_NODE && node.textContent.trim().length > 0) {
+              node.textContent = node.textContent.replace(/VESPA CLUB ASTI A\.s\.D\./gi, orgName.toUpperCase());
+            } else if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'SPAN' && !node.classList.contains('brand-badge')) {
+              node.textContent = orgName.toUpperCase();
+            }
+          });
+        });
+      }
+    } catch (e) {
+      console.warn('[GlobalBranding] Errore:', e);
+    }
   }
 
   switchView(viewId) {

@@ -18,7 +18,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
-<body>
+<body class="booking-page">
 
   <!-- Navigation Header - PRENOTAZIONI (Viola Indaco) -->
   <nav class="navbar navbar-prenotazione" style="justify-content:space-between; flex-wrap:wrap; gap:0.75rem;">
@@ -257,9 +257,9 @@
               <input type="number" id="annoVespa" required min="1946" max="2026" placeholder="Es. 1978">
             </div>
 
-            <!-- TAGLIA T-SHIRT -->
-            <div class="form-group">
-              <label for="tagliaTshirt">Taglia T-Shirt <span class="req">*</span></label>
+            <!-- TAGLIA ABBIGLIAMENTO / T-SHIRT (DINAMICA IN BASE AI GADGET ATTIVI) -->
+            <div class="form-group" id="tagliaTshirtGroup">
+              <label for="tagliaTshirt" id="tagliaTshirtLabel">Taglia T-Shirt <span class="req">*</span></label>
               <select id="tagliaTshirt" required>
                 <option value="S">S</option>
                 <option value="M">M</option>
@@ -277,7 +277,7 @@
                 <!-- Popolato dinamicamente da packages.js al caricamento della pagina -->
                 <option value="">⏳ Caricamento pacchetti...</option>
               </select>
-              <div id="packageBadgePreview" style="margin-top:0.4rem; display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; font-weight:700; color:var(--text-muted);"></div>
+              <div id="packageBadgePreview" style="margin-top:0.6rem;"></div>
             </div>
 
             <!-- SEZIONE COORDINATE IBAN E PAGAMENTO BONIFICO -->
@@ -469,8 +469,8 @@
               <span class="lbl">Modello & Anno Vespa:</span>
               <span class="val" id="ticketVespaModel">-</span>
             </div>
-            <div class="ticket-info-item">
-              <span class="lbl">Taglia T-Shirt:</span>
+            <div class="ticket-info-item" id="ticketTshirtItem">
+              <span class="lbl" id="ticketTshirtLabel">Taglia T-Shirt:</span>
               <span class="val" id="ticketTshirt">-</span>
             </div>
             <div class="ticket-info-item">
@@ -532,7 +532,7 @@
 
 
   <footer style="text-align:center; padding:1.5rem; color:var(--text-dim); font-size:0.85rem;">
-    Vespa Club Asti A.s.D. - Suite Registrazione Conducenti e Passeggeri Cloud
+    Vespa Club Asti A.s.D. - Registrazione Conducenti e Passeggeri Cloud
   </footer>
 
   <div id="toastContainer" class="toast-container"></div>
@@ -556,8 +556,52 @@
     if (!val) { box.innerHTML = ''; return; }
     const pkg = window.VespaPkg.resolvePackageFromRegistration(val);
     if (!pkg) { box.innerHTML = ''; return; }
+
     const svg = (window.VespaPkg.PACKAGE_BADGE_SVGS && window.VespaPkg.PACKAGE_BADGE_SVGS[pkg.id]) || '';
-    box.innerHTML = `${svg} <span style="color:var(--text-main); font-weight:800;">Pacchetto selezionato:</span> ${pkg.label} (&euro; ${pkg.price || pkg.defaultPrice})`;
+    const price = pkg.price || pkg.defaultPrice;
+    const services = Array.isArray(pkg.services) ? pkg.services : [];
+    const fieldsInfo = window.VespaPkg.SERVICE_DB_FIELDS || {};
+
+    // Recupera traduzioni attive (Italiano, English, Deutsch, Français)
+    const currentLang = (window.vespaI18n && window.vespaI18n.currentLang) || 'it';
+    const langObj = (typeof VESPA_I18N !== 'undefined' && VESPA_I18N[currentLang]) ? VESPA_I18N[currentLang] : (typeof VESPA_I18N !== 'undefined' ? VESPA_I18N.it : {});
+    const boxTitle = (langObj && langObj.pkgIncludesTitle) || '🎁 Il pacchetto comprende:';
+    const noServicesText = (langObj && langObj.pkgNoServices) || 'Nessun servizio aggiuntivo incluso';
+    const translatedLabels = (langObj && langObj.servicesLabels) || {};
+
+    let servicesBadgesHtml = '';
+    if (services.length > 0) {
+      servicesBadgesHtml = services.map(s => {
+        const info = fieldsInfo[s];
+        const defaultLabel = info ? info.label : s;
+        const localizedLabel = translatedLabels[s] || defaultLabel;
+        return `<span style="display:inline-flex; align-items:center; font-size:0.8rem; background:#F0FDF4; color:#14532D; border:1px solid #86EFAC; padding:0.25rem 0.6rem; border-radius:6px; font-weight:700; box-shadow:0 1px 2px rgba(0,0,0,0.04);">✔ ${localizedLabel}</span>`;
+      }).join(' ');
+    } else {
+      servicesBadgesHtml = `<span style="font-size:0.8rem; color:#64748B; font-style:italic;">${noServicesText}</span>`;
+    }
+
+    box.innerHTML = `
+      <div style="background:#FFFFFF; border:2px solid #005A9C; border-radius:12px; padding:0.85rem 1rem; box-shadow:0 3px 10px rgba(0,0,0,0.08); display:flex; flex-direction:column; gap:0.5rem;">
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.5rem; border-bottom:1px solid #E2E8F0; padding-bottom:0.5rem;">
+          <div style="display:flex; align-items:center; gap:0.45rem;">
+            ${svg}
+            <strong style="color:#003E6B; font-size:1rem;">${pkg.label}</strong>
+          </div>
+          <span style="font-size:1.05rem; font-weight:900; color:#005A9C; background:#EFF6FF; border:1px solid #BFDBFE; padding:0.2rem 0.6rem; border-radius:8px;">
+            € ${price}
+          </span>
+        </div>
+        <div>
+          <div style="font-size:0.75rem; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:0.35rem;">
+            ${boxTitle}
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:0.4rem; align-items:center;">
+            ${servicesBadgesHtml}
+          </div>
+        </div>
+      </div>
+    `;
   };
 
   (function populatePackagesSelect() {
@@ -639,7 +683,191 @@
 
     // Aggiorna in tempo reale se l'organizzatore cambia config in un'altra scheda
     window.addEventListener('storage', function(e) {
-      if (e.key === 'vespa_payment_config') applyPaymentConfig();
+      if (e.key === 'vespa_payment_config' || e.key === 'vespa_payment_config_pulse') applyPaymentConfig();
+    });
+  })();
+  </script>
+  <script>
+  /**
+   * Hydration Configurazione Evento (Nome, Organizzazione, Sottotitolo, Logo, Sfondo personalizzato con opacità)
+   * Sostituisce le informazioni cablate con quelle salvate nella dashboard.
+   */
+  (function hydrateEventConfig() {
+    function applyEventConfig() {
+      try {
+        const raw = localStorage.getItem('vespa_event_config');
+        if (!raw) return;
+        const cfg = JSON.parse(raw);
+
+        // 1. Titolo del modulo di prenotazione
+        const cardTitle = document.querySelector('.card-title');
+        if (cardTitle) {
+          const nomeEv = cfg.nomeBreve || (cfg.organizzazione ? `Raduno ${cfg.organizzazione}` : null);
+          if (nomeEv) {
+            cardTitle.innerHTML = `🛵 Modulo Prenotazione Ufficiale - ${nomeEv}`;
+          }
+        }
+
+        // 2. Sottotitolo del modulo
+        const cardSubtitle = document.querySelector('.card-subtitle');
+        if (cardSubtitle && cfg.descrizione && cfg.descrizione.trim()) {
+          cardSubtitle.textContent = cfg.descrizione.trim();
+        }
+
+        // 3. Brand Navbar (Logo + Nome Club)
+        const brandText = document.querySelector('.brand-prenotazione > span:not(.brand-badge)');
+        if (brandText && cfg.organizzazione && cfg.organizzazione.trim()) {
+          brandText.textContent = cfg.organizzazione.trim();
+        }
+
+        const brandLogo = document.querySelector('.brand-logo');
+        if (brandLogo && cfg.logoUrl) {
+          brandLogo.src = cfg.logoUrl;
+        }
+
+        // 4. Intestazione Ticket / Pass
+        const ticketHeaderH2 = document.querySelector('.ticket-header h2');
+        if (ticketHeaderH2 && cfg.organizzazione && cfg.organizzazione.trim()) {
+          ticketHeaderH2.textContent = cfg.organizzazione.trim();
+        }
+        const ticketHeaderP = document.querySelector('.ticket-header p');
+        if (ticketHeaderP && cfg.nomeBreve && cfg.nomeBreve.trim()) {
+          ticketHeaderP.textContent = `Pass Ufficiale Partecipante - ${cfg.nomeBreve.trim()}`;
+        }
+
+        // 5. Footer
+        const footerEl = document.querySelector('footer');
+        if (footerEl && cfg.organizzazione && cfg.organizzazione.trim()) {
+          footerEl.textContent = `${cfg.organizzazione.trim()} - Registrazione Conducenti e Passeggeri Cloud`;
+        }
+
+        // 6. Immagine di sfondo con opacità personalizzabile
+        let bgOverlay = document.getElementById('customBookingBgOverlay');
+        if (cfg.bgImageUrl && cfg.bgImageUrl.trim()) {
+          if (!bgOverlay) {
+            bgOverlay = document.createElement('div');
+            bgOverlay.id = 'customBookingBgOverlay';
+            bgOverlay.style.position = 'fixed';
+            bgOverlay.style.top = '0';
+            bgOverlay.style.left = '0';
+            bgOverlay.style.width = '100vw';
+            bgOverlay.style.height = '100vh';
+            bgOverlay.style.zIndex = '-1';
+            bgOverlay.style.backgroundPosition = 'center center';
+            bgOverlay.style.backgroundRepeat = 'no-repeat';
+            bgOverlay.style.backgroundSize = 'cover';
+            bgOverlay.style.pointerEvents = 'none';
+            document.body.appendChild(bgOverlay);
+          }
+          bgOverlay.style.backgroundImage = `url("${cfg.bgImageUrl}")`;
+          const opacityVal = (cfg.bgOpacity !== undefined && cfg.bgOpacity !== null) ? (cfg.bgOpacity / 100) : 0.15;
+          bgOverlay.style.opacity = opacityVal;
+          bgOverlay.style.display = 'block';
+        } else if (bgOverlay) {
+          bgOverlay.style.display = 'none';
+        }
+      } catch (e) {
+        console.warn('[EventHydration] Errore:', e);
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', applyEventConfig);
+    } else {
+      applyEventConfig();
+    }
+
+    // Aggiornamento reattivo in tempo reale via storage event
+    window.addEventListener('storage', function(e) {
+      if (e.key === 'vespa_event_config' || e.key === 'vespa_event_config_pulse') {
+        applyEventConfig();
+      }
+    });
+  })();
+  </script>
+  <script>
+  /**
+   * Hydration Configurazione Gadget & Abbigliamento:
+   * Controlla se nei gadget configurati dall'organizzatore è presente un capo di abbigliamento attivo.
+   * Se presente: attiva la scheda taglie con le opzioni configurate (es. S, M, L...).
+   * Se NON presente: disattiva/nasconde la scheda taglie dalla registrazione.
+   */
+  (function hydrateClothingSizes() {
+    function applyClothingSizesConfig() {
+      try {
+        const raw = localStorage.getItem('vespa_gadget_config');
+        const defaultGadgets = [
+          { id: 'gadget_tshirt', label: '👕 T-Shirt / Abbigliamento', active: true, isClothing: true, availableSizes: 'S, M, L, XL, XXL, 3XL' }
+        ];
+        let gadgets = defaultGadgets;
+        if (raw) {
+          try {
+            gadgets = JSON.parse(raw);
+          } catch (e) {}
+        }
+
+        // Cerca il primo gadget attivo contrassegnato come capo di abbigliamento
+        const clothing = gadgets.find(g => g.active !== false && g.isClothing === true);
+        const groupEl = document.getElementById('tagliaTshirtGroup');
+        const selectEl = document.getElementById('tagliaTshirt');
+        const ticketItem = document.getElementById('ticketTshirtItem');
+        const labelEl = document.getElementById('tagliaTshirtLabel');
+
+        if (clothing) {
+          // Attiva il campo taglie
+          if (groupEl) groupEl.style.display = '';
+          if (selectEl) {
+            selectEl.disabled = false;
+            selectEl.required = true;
+            // Popola con le taglie configurate
+            const rawSizes = (clothing.availableSizes && clothing.availableSizes.trim())
+              ? clothing.availableSizes
+              : 'S, M, L, XL, XXL, 3XL';
+            const sizesArr = rawSizes.split(',').map(s => s.trim()).filter(Boolean);
+            const currentVal = selectEl.value;
+
+            selectEl.innerHTML = sizesArr.map(sz => {
+              return `<option value="${sz}">${sz}</option>`;
+            }).join('');
+
+            // Mantieni il valore precedente se ancora presente, altrimenti seleziona il primo o 'L'
+            if (sizesArr.includes(currentVal)) {
+              selectEl.value = currentVal;
+            } else if (sizesArr.includes('L')) {
+              selectEl.value = 'L';
+            } else if (sizesArr.length > 0) {
+              selectEl.value = sizesArr[0];
+            }
+          }
+          if (ticketItem) ticketItem.style.display = '';
+          if (labelEl && clothing.label) {
+            labelEl.innerHTML = `Taglia ${clothing.label.replace(/^[^\w\s]+/, '').trim()} <span class="req">*</span>`;
+          }
+        } else {
+          // Disattiva il campo taglie se non è presente alcun capo di abbigliamento
+          if (groupEl) groupEl.style.display = 'none';
+          if (selectEl) {
+            selectEl.disabled = true;
+            selectEl.required = false;
+            selectEl.value = '';
+          }
+          if (ticketItem) ticketItem.style.display = 'none';
+        }
+      } catch (e) {
+        console.warn('[ClothingSizesHydration] Errore:', e);
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', applyClothingSizesConfig);
+    } else {
+      applyClothingSizesConfig();
+    }
+
+    window.addEventListener('storage', function(e) {
+      if (e.key === 'vespa_gadget_config' || e.key === 'vespa_gadget_config_pulse') {
+        applyClothingSizesConfig();
+      }
     });
   })();
   </script>

@@ -1331,3 +1331,115 @@ table.data-table .btn-sm {
   }
 }
 
+/* ── PRENOTAZIONE: SCHERMATA TRASPARENTE CON SFONDO PERSONALIZZATO ───── */
+body.booking-page {
+  position: relative;
+  background-color: #F1F5F9;
+}
+
+/* Rimuove lo sfondo bianco opaco dal riquadro principale (card) in modo che si veda l'immagine di sfondo */
+body.booking-page #booking-view .card,
+body.booking-page .card.booking-transparent-card {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 1.5rem 0.5rem;
+}
+
+/* Intestazione del form su sfondo trasparente con alto contrasto */
+body.booking-page #booking-view .card-header {
+  border-bottom: 2px solid rgba(0, 90, 156, 0.35);
+  margin-bottom: 1.75rem;
+  padding-bottom: 1.25rem;
+}
+
+body.booking-page #booking-view .card-title {
+  color: #003E6B !important;
+  font-size: 1.6rem;
+  font-weight: 900;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.95), 0 0 12px rgba(255, 255, 255, 0.9);
+}
+
+body.booking-page #booking-view .card-subtitle {
+  color: #1E293B !important;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.95), 0 0 8px rgba(255, 255, 255, 0.85);
+}
+
+/* Etichette dei campi: perfettamente leggibili e a contrasto */
+body.booking-page #booking-view label {
+  color: #003366 !important;
+  font-weight: 900;
+  font-size: 0.86rem;
+  letter-spacing: 0.6px;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.95), 0 0 8px rgba(255, 255, 255, 0.9);
+}
+
+body.booking-page #booking-view .form-group small {
+  color: #0F172A !important;
+  font-weight: 700;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.95), 0 0 8px rgba(255, 255, 255, 0.85);
+}
+
+/* Righe e caselle di registrazione: opache (100% coprenti), alto contrasto, bordo marcato e ombreggiatura */
+body.booking-page #booking-view input,
+body.booking-page #booking-view select,
+body.booking-page #booking-view textarea {
+  background-color: #FFFFFF !important;
+  opacity: 1 !important;
+  color: #0F172A !important;
+  font-weight: 700 !important;
+  border: 2px solid #64748B !important;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+  border-radius: var(--radius-md);
+  padding: 0.9rem 1.05rem;
+}
+
+body.booking-page #booking-view input::placeholder,
+body.booking-page #booking-view textarea::placeholder {
+  color: #64748B !important;
+  font-weight: 500;
+}
+
+body.booking-page #booking-view input:focus,
+body.booking-page #booking-view select:focus,
+body.booking-page #booking-view textarea:focus {
+  background-color: #FFFFFF !important;
+  border-color: #005A9C !important;
+  box-shadow: 0 0 0 4px rgba(0, 90, 156, 0.25), 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Sezione Coordinate IBAN: opaca, contrastata e ben definita */
+body.booking-page #booking-view .payment-box {
+  background: #FFFFFF !important;
+  opacity: 1 !important;
+  border: 2.5px solid #005A9C !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+}
+
+body.booking-page #booking-view #paymentInfoGrid {
+  background: #F8FAFC !important;
+  border: 1.5px solid #CBD5E1 !important;
+}
+
+/* Area caricamento ricevuta bonifico: opaca, fondo chiaro con bordo marcato */
+body.booking-page #booking-view .file-upload-area {
+  background: #FFFFFF !important;
+  opacity: 1 !important;
+  border: 2.5px dashed #005A9C !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1) !important;
+}
+
+body.booking-page #booking-view .file-upload-area:hover,
+body.booking-page #booking-view .file-upload-area.dragover {
+  background: #EFF6FF !important;
+  border-color: #1D4ED8 !important;
+}
+
+/* Badge preview del pacchetto selezionato */
+body.booking-page #booking-view #packageBadgePreview {
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.95);
+}
+
+

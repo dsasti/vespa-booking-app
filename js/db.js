@@ -409,20 +409,27 @@ class VespaDB {
       record.merendaSabatoErogata = newVal;
       record.merendaTimestamp = newVal ? now : null;
       record.merendaSabatoErogataTimestamp = newVal ? now : null;
-    } else if (serviceKey === 'statoAccettazioneSabato') {
+    } else if (serviceKey === 'statoAccettazioneSabato' || serviceKey === 'statoAccettazione_giorno_1') {
       record.statoAccettazioneSabato = newVal;
+      record.statoAccettazione_giorno_1 = newVal;
       record.accettazioneSabatoTimestamp = newVal ? now : null;
+      record.statoAccettazione_giorno_1Timestamp = newVal ? now : null;
       // Ricalcola accettazioneConclusa: true solo se ENTRAMBI i giorni sono true
       record.accettazioneConclusa = !!(record.statoAccettazioneSabato && record.statoAccettazioneDomenica);
       if (!record.accettazioneConclusa) record.accettazioneTimestamp = null;
       else if (!record.accettazioneTimestamp) record.accettazioneTimestamp = now;
-    } else if (serviceKey === 'statoAccettazioneDomenica') {
+    } else if (serviceKey === 'statoAccettazioneDomenica' || serviceKey === 'statoAccettazione_giorno_2') {
       record.statoAccettazioneDomenica = newVal;
+      record.statoAccettazione_giorno_2 = newVal;
       record.accettazioneDomenicaTimestamp = newVal ? now : null;
+      record.statoAccettazione_giorno_2Timestamp = newVal ? now : null;
       // Ricalcola accettazioneConclusa: true solo se ENTRAMBI i giorni sono true
       record.accettazioneConclusa = !!(record.statoAccettazioneSabato && record.statoAccettazioneDomenica);
       if (!record.accettazioneConclusa) record.accettazioneTimestamp = null;
       else if (!record.accettazioneTimestamp) record.accettazioneTimestamp = now;
+    } else if (serviceKey.startsWith('statoAccettazione_')) {
+      record[serviceKey] = newVal;
+      record[serviceKey + 'Timestamp'] = newVal ? now : null;
     }
 
     return await this.saveRegistration(record);

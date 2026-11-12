@@ -104,6 +104,19 @@ const VESPA_I18N = {
     badgeCena: '🍽️ Cena Sabato',
     badgePranzo: '🍽️ Pranzo Domenica',
 
+    // Riquadro anteprima pacchetto selezionato
+    pkgIncludesTitle: '🎁 Il pacchetto comprende:',
+    pkgNoServices: 'Nessun servizio aggiuntivo incluso',
+    servicesLabels: {
+      gadget: '👕 Gadget & Kit',
+      merendaSabato: '🧁 Merenda Sab.',
+      aperitivoSabato: '🍹 Aperitivo Sab.',
+      cena: '🍽️ Cena Sab.',
+      colazioneDomenica: '🥐 Colazione Dom.',
+      aperitivoDomenica: '🍸 Aperitivo Dom.',
+      pranzo: '🥗 Pranzo Dom.'
+    },
+
     lblPartecipante: 'Partecipante:',
     lblVespaClub: 'Vespa Club:',
     lblCittaProvenienza: 'Città di Provenienza:',
@@ -134,7 +147,7 @@ const VESPA_I18N = {
     modalDuplicateHelp: 'ℹ️ In caso di dubbi, modifiche o problemi con la prenotazione, contatta direttamente l\'organizzatore del Vespa Club Asti.',
     modalDuplicateClose: 'Ho Capito / Correggi Dati',
 
-    footerText: 'Vespa Club Asti A.s.D. - Fondato nel 1950 | Suite Registrazione Conducenti e Passeggeri Cloud'
+    footerText: 'Vespa Club Asti A.s.D. - Fondato nel 1950 | Registrazione Conducenti e Passeggeri Cloud'
   },
 
   en: {
@@ -233,6 +246,19 @@ const VESPA_I18N = {
     badgeCena: '🍽️ Saturday Dinner',
     badgePranzo: '🍽️ Sunday Lunch',
 
+    // Package Preview Box
+    pkgIncludesTitle: '🎁 The package includes:',
+    pkgNoServices: 'No additional services included',
+    servicesLabels: {
+      gadget: '👕 Goodie Bag & Gadgets',
+      merendaSabato: '🧁 Saturday Snack',
+      aperitivoSabato: '🍹 Saturday Aperitif',
+      cena: '🍽️ Saturday Dinner',
+      colazioneDomenica: '🥐 Sunday Breakfast',
+      aperitivoDomenica: '🍸 Sunday Aperitif',
+      pranzo: '🥗 Sunday Lunch'
+    },
+
     lblPartecipante: 'Participant:',
     lblVespaClub: 'Vespa Club:',
     lblCittaProvenienza: 'City of Origin:',
@@ -261,7 +287,7 @@ const VESPA_I18N = {
     modalDuplicateHelp: 'ℹ️ For any questions, changes or assistance, contact the Vespa Club Asti organizers directly.',
     modalDuplicateClose: 'Understood / Correct Details',
 
-    footerText: 'Vespa Club Asti A.s.D. - Founded in 1950 | Cloud Rider & Passenger Registration Suite'
+    footerText: 'Vespa Club Asti A.s.D. - Founded in 1950 | Cloud Rider & Passenger Registration'
   },
 
   de: {
@@ -359,6 +385,19 @@ const VESPA_I18N = {
     badgeAperitivo: '🍹 Willkommens-Aperitif',
     badgeCena: '🍽️ Samstag Abendessen',
     badgePranzo: '🍽️ Sonntag Mittagessen',
+
+    // Paket-Vorschau Box
+    pkgIncludesTitle: '🎁 Das Paket beinhaltet:',
+    pkgNoServices: 'Keine zusätzlichen Leistungen enthalten',
+    servicesLabels: {
+      gadget: '👕 Goodie-Bag & Gadget',
+      merendaSabato: '🧁 Sa. Nachmittagssnack',
+      aperitivoSabato: '🍹 Sa. Aperitif',
+      cena: '🍽️ Sa. Abendessen',
+      colazioneDomenica: '🥐 So. Frühstück',
+      aperitivoDomenica: '🍸 So. Aperitif',
+      pranzo: '🥗 So. Mittagessen'
+    },
 
     lblPartecipante: 'Teilnehmer:',
     lblVespaClub: 'Vespa Club:',
@@ -487,6 +526,19 @@ const VESPA_I18N = {
     badgeCena: '🍽️ Dîner du Samedi',
     badgePranzo: '🍽️ Déjeuner du Dimanche',
 
+    // Boîte aperçu de la formule
+    pkgIncludesTitle: '🎁 La formule comprend :',
+    pkgNoServices: 'Aucun service supplémentaire inclus',
+    servicesLabels: {
+      gadget: '👕 Kit Cadeaux & Gadgets',
+      merendaSabato: '🧁 Collation du Samedi',
+      aperitivoSabato: '🍹 Apéritif du Samedi',
+      cena: '🍽️ Dîner du Samedi',
+      colazioneDomenica: '🥐 Petit-déjeuner du Dimanche',
+      aperitivoDomenica: '🍸 Apéritif du Dimanche',
+      pranzo: '🥗 Déjeuner du Dimanche'
+    },
+
     lblPartecipante: 'Participant :',
     lblVespaClub: 'Vespa Club :',
     lblCittaProvenienza: 'Ville de Provenance :',
@@ -574,9 +626,30 @@ class VespaI18nManager {
 
     // View 1 Card Header
     const cardTitle = document.querySelector('.card-title');
-    if (cardTitle) cardTitle.textContent = t.cardTitle;
+    if (cardTitle) {
+      let customTitle = null;
+      try {
+        const rawCfg = localStorage.getItem('vespa_event_config');
+        if (rawCfg) {
+          const cfg = JSON.parse(rawCfg);
+          const nomeEv = cfg.nomeBreve || (cfg.organizzazione ? `Raduno ${cfg.organizzazione}` : null);
+          if (nomeEv) customTitle = `🛵 Modulo Prenotazione Ufficiale - ${nomeEv}`;
+        }
+      } catch (e) {}
+      cardTitle.textContent = customTitle || t.cardTitle;
+    }
     const cardSubtitle = document.querySelector('.card-subtitle');
-    if (cardSubtitle) cardSubtitle.textContent = t.cardSubtitle;
+    if (cardSubtitle) {
+      let customSubtitle = null;
+      try {
+        const rawCfg = localStorage.getItem('vespa_event_config');
+        if (rawCfg) {
+          const cfg = JSON.parse(rawCfg);
+          if (cfg.descrizione && cfg.descrizione.trim()) customSubtitle = cfg.descrizione.trim();
+        }
+      } catch (e) {}
+      cardSubtitle.textContent = customSubtitle || t.cardSubtitle;
+    }
 
     // Edit Banner
     setHtml('bookingEditModePassId', `<span style="font-family:monospace; font-size:1rem; font-weight:900; color:#065F46;">${document.getElementById('bookingEditModePassId')?.textContent || '-'}</span>`);
@@ -785,6 +858,11 @@ class VespaI18nManager {
     // Footer
     const footer = document.querySelector('footer');
     if (footer) footer.textContent = t.footerText;
+
+    // Aggiorna l'anteprima del pacchetto con la nuova lingua se la funzione è presente
+    if (typeof window.renderPackageBadgePreview === 'function') {
+      window.renderPackageBadgePreview();
+    }
   }
 
   updateSelectorUI() {

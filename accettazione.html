@@ -97,9 +97,10 @@
   <main class="container">
     <div class="card">
 
-      <!-- STEP 1: Selezione Giorno -->
-      <div class="day-selector">
-        <button class="day-btn" id="btnSabato"   onclick="window.accettazioneApp.selectDay('SABATO')">🌙 Sabato</button>
+      <!-- STEP 1: Selezione Giorno Dinamica -->
+      <div class="day-selector" id="dayButtonsContainer">
+        <!-- Generato dinamicamente in base ai giorni configurati -->
+        <button class="day-btn" id="btnSabato" onclick="window.accettazioneApp.selectDay('SABATO')">🌙 Sabato</button>
         <button class="day-btn" id="btnDomenica" onclick="window.accettazioneApp.selectDay('DOMENICA')">☀️ Domenica</button>
       </div>
 
@@ -210,26 +211,63 @@
    */
   (function() {
     var currentDay = null;
+    var currentDayObj = null;
     var currentClubName = null;
+
+    function renderDynamicDayButtons() {
+      var daysContainer = document.getElementById('dayButtonsContainer');
+      if (!daysContainer) return;
+      var eventDays = (window.VespaPkg && typeof window.VespaPkg.getEventConfigDays === 'function')
+        ? window.VespaPkg.getEventConfigDays()
+        : [
+            { id: 'giorno_1', code: 'SABATO', name: 'Sabato', icon: '🌙' },
+            { id: 'giorno_2', code: 'DOMENICA', name: 'Domenica', icon: '☀️' }
+          ];
+
+      daysContainer.innerHTML = eventDays.map(function(d, idx) {
+        var dayCode = d.code || (idx === 0 ? 'SABATO' : (idx === 1 ? 'DOMENICA' : `GIORNO_${idx+1}`));
+        var icon = d.icon || (idx === 0 ? '🌙' : (idx === 1 ? '☀️' : '🏁'));
+        return '<button class="day-btn" id="btnDay_' + dayCode + '" onclick="window.accettazioneApp.selectDay(\'' + dayCode + '\')">' +
+          icon + ' ' + (d.name || ('Giorno ' + (idx + 1))) +
+        '</button>';
+      }).join('');
+    }
 
     function selectDay(day) {
       currentDay = day;
-      var mode = (day === 'SABATO') ? 'ACCETTAZIONE_SABATO' : 'ACCETTAZIONE_DOMENICA';
+      var eventDays = (window.VespaPkg && typeof window.VespaPkg.getEventConfigDays === 'function')
+        ? window.VespaPkg.getEventConfigDays()
+        : [
+            { id: 'giorno_1', code: 'SABATO', name: 'Sabato', icon: '🌙' },
+            { id: 'giorno_2', code: 'DOMENICA', name: 'Domenica', icon: '☀️' }
+          ];
+      currentDayObj = eventDays.find(function(d) {
+        return (d.code && d.code.toUpperCase() === day.toUpperCase()) ||
+               (d.name && d.name.toUpperCase() === day.toUpperCase()) ||
+               (d.id && d.id.toUpperCase() === day.toUpperCase());
+      }) || { name: day, code: day, icon: '📅' };
 
-      // Aggiorna pulsanti
-      document.getElementById('btnSabato').className   = 'day-btn' + (day === 'SABATO'   ? ' active-sabato'   : '');
-      document.getElementById('btnDomenica').className = 'day-btn' + (day === 'DOMENICA' ? ' active-domenica' : '');
+      var mode = 'ACCETTAZIONE_' + day.toUpperCase();
+
+      // Aggiorna classi pulsanti
+      var btns = document.querySelectorAll('.day-selector .day-btn');
+      btns.forEach(function(b) {
+        b.classList.remove('active-sabato', 'active-domenica');
+        if (b.id === 'btnDay_' + day) {
+          b.classList.add(day === 'DOMENICA' ? 'active-domenica' : 'active-sabato');
+        }
+      });
 
       // Aggiorna banner
       var banner = document.getElementById('activeDayBanner');
-      banner.className = 'active-day-banner ' + (day === 'SABATO' ? 'sabato' : 'domenica');
+      banner.style.display = 'flex';
+      banner.className = 'active-day-banner ' + (day === 'DOMENICA' ? 'domenica' : 'sabato');
       document.getElementById('bannerText').textContent =
-        (day === 'SABATO' ? '🌙 ACCETTAZIONE SABATO attiva' : '☀️ ACCETTAZIONE DOMENICA attiva') +
-        ' — il giorno rimane selezionato per tutta la sessione';
+        (currentDayObj.icon || '📅') + ' ACCETTAZIONE ' + currentDayObj.name.toUpperCase() + ' attiva — il giorno rimane selezionato per tutta la sessione';
 
       // Aggiorna nav badge
       var badge = document.getElementById('navBadge');
-      badge.textContent = day === 'SABATO' ? '🎫 ACCETTAZIONE (SABATO)' : '🎫 ACCETTAZIONE (DOMENICA)';
+      badge.textContent = '🎫 ACCETTAZIONE (' + currentDayObj.name.toUpperCase() + ')';
 
       // Mostra scanner, nascondi prompt e group view
       document.getElementById('scannerPanel').classList.add('visible');
@@ -375,14 +413,16 @@
     }
 
     function renderGroupMembers(members) {
-      var isSab = (currentDay === 'SABATO');
-      var dayLabel = isSab ? 'Sabato' : 'Domenica';
-      var fieldName = isSab ? 'statoAccettazioneSabato' : 'statoAccettazioneDomenica';
+      var dayCode = (currentDay || 'SABATO').toUpperCase();
+      var isSab = (dayCode === 'SABATO' || dayCode === 'GIORNO_1');
+      var isDom = (dayCode === 'DOMENICA' || dayCode === 'GIORNO_2');
+      var dayLabel = (currentDayObj && currentDayObj.name) ? currentDayObj.name : (isSab ? 'Sabato' : (isDom ? 'Domenica' : dayCode));
+      var fieldName = isSab ? 'statoAccettazioneSabato' : (isDom ? 'statoAccettazioneDomenica' : ('statoAccettazione_' + dayCode.toLowerCase()));
 
       // FILTRO: rimuovi i partecipanti che non hanno il giorno selezionato incluso nel pacchetto
       var eligibleMembers = members.filter(function(m) {
-        if (window.VespaPkg) {
-          return isSab ? window.VespaPkg.packageIncludesSabato(m.modalitaPartecipazione) : window.VespaPkg.packageIncludesDomenica(m.modalitaPartecipazione);
+        if (window.VespaPkg && typeof window.VespaPkg.packageIncludesDay === 'function') {
+          return window.VespaPkg.packageIncludesDay(m.modalitaPartecipazione, dayCode);
         }
         var modalita = (m.modalitaPartecipazione || '').toUpperCase();
         return isSab
@@ -466,14 +506,24 @@
       var record = await window.vespaDB.getById(id);
       if (!record) return;
 
-      var isSab = (currentDay === 'SABATO');
-      var fieldName = isSab ? 'statoAccettazioneSabato' : 'statoAccettazioneDomenica';
-      var timeField = isSab ? 'accettazioneSabatoTimestamp' : 'accettazioneDomenicaTimestamp';
+      var dayCode = (currentDay || 'SABATO').toUpperCase();
+      var isSab = (dayCode === 'SABATO' || dayCode === 'GIORNO_1');
+      var isDom = (dayCode === 'DOMENICA' || dayCode === 'GIORNO_2');
+      var fieldName = isSab ? 'statoAccettazioneSabato' : (isDom ? 'statoAccettazioneDomenica' : ('statoAccettazione_' + dayCode.toLowerCase()));
+      var timeField = fieldName + 'Timestamp';
       var timeString = new Date().toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' });
 
       var newVal = !record[fieldName];
       record[fieldName] = newVal;
       record[timeField] = newVal ? timeString : null;
+
+      if (isSab) {
+        record.statoAccettazioneSabato = newVal;
+        record.accettazioneSabatoTimestamp = newVal ? timeString : null;
+      } else if (isDom) {
+        record.statoAccettazioneDomenica = newVal;
+        record.accettazioneDomenicaTimestamp = newVal ? timeString : null;
+      }
 
       if (record.statoAccettazioneSabato && record.statoAccettazioneDomenica) {
         record.accettazioneConclusa = true;
@@ -509,8 +559,13 @@
       openGroupView: openGroupView,
       closeGroupView: closeGroupView,
       toggleGroupParticipant: toggleGroupParticipant,
-      markGroupPaid: markGroupPaid
+      markGroupPaid: markGroupPaid,
+      renderDynamicDayButtons: renderDynamicDayButtons
     };
+
+    document.addEventListener('DOMContentLoaded', function() {
+      renderDynamicDayButtons();
+    });
   })();
   </script>
 
@@ -553,13 +608,16 @@
       /* ── validateAndProcessRegistration ── */
       window.vespaScanner.validateAndProcessRegistration = async function(p) {
         var mode = this.mode;
-        if (mode !== 'ACCETTAZIONE_SABATO' && mode !== 'ACCETTAZIONE_DOMENICA') {
+        if (!mode || !mode.startsWith('ACCETTAZIONE_')) {
           return origValidate(p);
         }
 
-        var isSab = (mode === 'ACCETTAZIONE_SABATO');
-        var dayLabel = isSab ? 'Sabato' : 'Domenica';
-        var alreadyDoneField = isSab ? 'statoAccettazioneSabato' : 'statoAccettazioneDomenica';
+        var dayCode = mode.replace('ACCETTAZIONE_', '').toUpperCase();
+        var isSab = (dayCode === 'SABATO' || dayCode === 'GIORNO_1');
+        var isDom = (dayCode === 'DOMENICA' || dayCode === 'GIORNO_2');
+        var dayLabel = (window.accettazioneApp && currentDayObj && currentDayObj.name) ? currentDayObj.name : (isSab ? 'Sabato' : (isDom ? 'Domenica' : dayCode));
+
+        var alreadyDoneField = isSab ? 'statoAccettazioneSabato' : (isDom ? 'statoAccettazioneDomenica' : ('statoAccettazione_' + dayCode.toLowerCase()));
 
         if (p[alreadyDoneField]) {
           this.renderStatusFeedback(
@@ -570,27 +628,20 @@
         }
 
         // ── Controllo compatibilità pacchetto / giorno ──────────────────────
-        var includesSab = window.VespaPkg 
-          ? window.VespaPkg.packageIncludesSabato(p.modalitaPartecipazione)
-          : ((p.modalitaPartecipazione || '').toUpperCase().includes('SABATO') || (p.modalitaPartecipazione || '').toUpperCase().includes('FULL 2 GIORNI') || (p.modalitaPartecipazione || '').toUpperCase().includes('COMPLETA'));
-        var includesDom = window.VespaPkg
-          ? window.VespaPkg.packageIncludesDomenica(p.modalitaPartecipazione)
-          : ((p.modalitaPartecipazione || '').toUpperCase().includes('DOMENICA') || (p.modalitaPartecipazione || '').toUpperCase().includes('FULL 2 GIORNI') || (p.modalitaPartecipazione || '').toUpperCase().includes('COMPLETA'));
-
-        if (isSab && !includesSab) {
-          this.renderStatusFeedback(
-            '\u274c PACCHETTO NON INCLUDE SABATO: ' + p.cognome + ' ' + p.nome +
-            ' ha acquistato \u00ab' + (p.modalitaPartecipazione || 'N/D').split('-')[0].trim() + '\u00bb' +
-            ' \u2014 il Sabato non \u00e8 incluso nel pacchetto. Accettazione rifiutata.',
-            'danger', p
-          );
-          return;
+        var includesDay = true;
+        if (window.VespaPkg && typeof window.VespaPkg.packageIncludesDay === 'function') {
+          includesDay = window.VespaPkg.packageIncludesDay(p.modalitaPartecipazione, dayCode);
+        } else if (isSab) {
+          includesDay = window.VespaPkg ? window.VespaPkg.packageIncludesSabato(p.modalitaPartecipazione) : true;
+        } else if (isDom) {
+          includesDay = window.VespaPkg ? window.VespaPkg.packageIncludesDomenica(p.modalitaPartecipazione) : true;
         }
-        if (!isSab && !includesDom) {
+
+        if (!includesDay) {
           this.renderStatusFeedback(
-            '\u274c PACCHETTO NON INCLUDE DOMENICA: ' + p.cognome + ' ' + p.nome +
+            '\u274c PACCHETTO NON INCLUDE ' + dayLabel.toUpperCase() + ': ' + p.cognome + ' ' + p.nome +
             ' ha acquistato \u00ab' + (p.modalitaPartecipazione || 'N/D').split('-')[0].trim() + '\u00bb' +
-            ' \u2014 la Domenica non \u00e8 inclusa nel pacchetto. Accettazione rifiutata.',
+            ' \u2014 il giorno ' + dayLabel + ' non \u00e8 incluso nel pacchetto. Accettazione rifiutata.',
             'danger', p
           );
           return;
@@ -604,15 +655,18 @@
 
         var timeString = new Date().toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' });
 
+        p[alreadyDoneField] = true;
+        p[alreadyDoneField + 'Timestamp'] = timeString;
+
         if (isSab) {
-          p.statoAccettazioneSabato   = true;
+          p.statoAccettazioneSabato = true;
           p.accettazioneSabatoTimestamp = timeString;
-        } else {
-          p.statoAccettazioneDomenica   = true;
+        } else if (isDom) {
+          p.statoAccettazioneDomenica = true;
           p.accettazioneDomenicaTimestamp = timeString;
         }
 
-        // Segna accettazione globale conclusa solo se entrambi i giorni sono ok
+        // Segna accettazione globale conclusa se sono coperti i giorni
         if (p.statoAccettazioneSabato && p.statoAccettazioneDomenica) {
           p.accettazioneConclusa   = true;
           p.accettazioneTimestamp  = timeString;
@@ -633,59 +687,46 @@
       /* ── forceAcceptance (pagato in contanti) — rispetta il giorno attivo ── */
       window.vespaScanner.forceAcceptance = async function(id) {
         if (window.vespaDB) await window.vespaDB.ensureInit();
-        // Recupera record aggiornato
-        var _recCheck = (this.currentParticipant && this.currentParticipant.id === id)
-          ? this.currentParticipant : (window.vespaDB ? await window.vespaDB.getById(id) : null);
-        if (_recCheck) {
-          var _isSab2 = (this.mode === 'ACCETTAZIONE_SABATO');
-          var _ok = window.VespaPkg
-            ? (_isSab2 ? window.VespaPkg.packageIncludesSabato(_recCheck.modalitaPartecipazione) : window.VespaPkg.packageIncludesDomenica(_recCheck.modalitaPartecipazione))
-            : (_isSab2
-              ? ((_recCheck.modalitaPartecipazione || '').toUpperCase().includes('SABATO') || (_recCheck.modalitaPartecipazione || '').toUpperCase().includes('FULL 2 GIORNI') || (_recCheck.modalitaPartecipazione || '').toUpperCase().includes('COMPLETA'))
-              : ((_recCheck.modalitaPartecipazione || '').toUpperCase().includes('DOMENICA') || (_recCheck.modalitaPartecipazione || '').toUpperCase().includes('FULL 2 GIORNI') || (_recCheck.modalitaPartecipazione || '').toUpperCase().includes('COMPLETA')));
-          if (!_ok) {
-            var _dl3 = _isSab2 ? 'Sabato' : 'Domenica';
-            this.renderStatusFeedback(
-              '\u274c PACCHETTO NON INCLUDE ' + _dl3.toUpperCase() + ': accettazione per ' + _dl3 + ' rifiutata \u2014 il pacchetto \u00ab' +
-              (_recCheck.modalitaPartecipazione || '').split('-')[0].trim() + '\u00bb non comprende questo giorno.',
-              'danger', _recCheck
-            );
-            return;
-          }
-        }
         var record = (this.currentParticipant && this.currentParticipant.id === id)
           ? this.currentParticipant : await window.vespaDB.getById(id);
         if (!record) return;
 
-        var mode = this.mode;
-        var isSab = (mode === 'ACCETTAZIONE_SABATO');
-        var useDayMode = (mode === 'ACCETTAZIONE_SABATO' || mode === 'ACCETTAZIONE_DOMENICA');
+        var mode = this.mode || '';
+        var dayCode = mode.startsWith('ACCETTAZIONE_') ? mode.replace('ACCETTAZIONE_', '').toUpperCase() : '';
+        var isSab = (dayCode === 'SABATO' || dayCode === 'GIORNO_1');
+        var isDom = (dayCode === 'DOMENICA' || dayCode === 'GIORNO_2');
+        var dayLabel = (window.accettazioneApp && currentDayObj && currentDayObj.name) ? currentDayObj.name : (isSab ? 'Sabato' : (isDom ? 'Domenica' : dayCode));
+
         var timeString = new Date().toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' });
 
         record.statoPagamento  = 'PAGATO';
         record.notePagamento   = (record.notePagamento || '') +
           ' [Pagato in contanti all\'accettazione alle ' + timeString + ']';
 
-        if (useDayMode) {
+        if (dayCode) {
+          var fieldName = isSab ? 'statoAccettazioneSabato' : (isDom ? 'statoAccettazioneDomenica' : ('statoAccettazione_' + dayCode.toLowerCase()));
+          record[fieldName] = true;
+          record[fieldName + 'Timestamp'] = timeString;
+
           if (isSab) {
-            record.statoAccettazioneSabato     = true;
+            record.statoAccettazioneSabato = true;
             record.accettazioneSabatoTimestamp = timeString;
-          } else {
-            record.statoAccettazioneDomenica     = true;
+          } else if (isDom) {
+            record.statoAccettazioneDomenica = true;
             record.accettazioneDomenicaTimestamp = timeString;
           }
+
           if (record.statoAccettazioneSabato && record.statoAccettazioneDomenica) {
             record.accettazioneConclusa  = true;
             record.accettazioneTimestamp = timeString;
           }
-          var dl = isSab ? 'Sabato' : 'Domenica';
-          var msg = '\u2705 PAGATO & ACCETTATO (' + dl + '): ' + record.cognome + ' ' + record.nome + ' \u2014 ingresso ' + dl + ' convalidato.';
+
+          var msg = '\u2705 PAGATO & ACCETTATO (' + dayLabel + '): ' + record.cognome + ' ' + record.nome + ' \u2014 ingresso ' + dayLabel + ' convalidato.';
           if (window.vespaDB) await window.vespaDB.saveRegistration(record);
           try { localStorage.setItem('vespa_db_sync_pulse', Date.now().toString()); } catch(e) {}
           this.currentParticipant = record;
           this.renderStatusFeedback(msg, 'success', record);
         } else {
-          // fallback originale (mode ACCETTAZIONE generico)
           return origForce(id);
         }
       };
@@ -697,32 +738,39 @@
           ? this.currentParticipant : await window.vespaDB.getById(id);
         if (!record) return;
 
-        var mode = this.mode;
-        var isSab = (mode === 'ACCETTAZIONE_SABATO');
-        var useDayMode = (mode === 'ACCETTAZIONE_SABATO' || mode === 'ACCETTAZIONE_DOMENICA');
+        var mode = this.mode || '';
+        var dayCode = mode.startsWith('ACCETTAZIONE_') ? mode.replace('ACCETTAZIONE_', '').toUpperCase() : '';
+        var isSab = (dayCode === 'SABATO' || dayCode === 'GIORNO_1');
+        var isDom = (dayCode === 'DOMENICA' || dayCode === 'GIORNO_2');
+        var dayLabel = (window.accettazioneApp && currentDayObj && currentDayObj.name) ? currentDayObj.name : (isSab ? 'Sabato' : (isDom ? 'Domenica' : dayCode));
+
         var timeString = new Date().toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' });
 
-        if (useDayMode) {
+        if (dayCode) {
+          var fieldName = isSab ? 'statoAccettazioneSabato' : (isDom ? 'statoAccettazioneDomenica' : ('statoAccettazione_' + dayCode.toLowerCase()));
+          record[fieldName] = true;
+          record[fieldName + 'Timestamp'] = timeString;
+
           if (isSab) {
-            record.statoAccettazioneSabato     = true;
+            record.statoAccettazioneSabato = true;
             record.accettazioneSabatoTimestamp = timeString;
-          } else {
-            record.statoAccettazioneDomenica     = true;
+          } else if (isDom) {
+            record.statoAccettazioneDomenica = true;
             record.accettazioneDomenicaTimestamp = timeString;
           }
+
           if (record.statoAccettazioneSabato && record.statoAccettazioneDomenica) {
             record.accettazioneConclusa  = true;
             record.accettazioneTimestamp = timeString;
           }
           record.noteOrganizzatore = (record.noteOrganizzatore || '') +
-            ' [Ingresso sbloccato manualmente (' + (isSab ? 'Sabato' : 'Domenica') + ') alle ' + timeString + ' \u2014 quota ancora da verificare]';
+            ' [Ingresso sbloccato manualmente (' + dayLabel + ') alle ' + timeString + ' \u2014 quota ancora da verificare]';
 
           if (window.vespaDB) await window.vespaDB.saveRegistration(record);
           try { localStorage.setItem('vespa_db_sync_pulse', Date.now().toString()); } catch(e) {}
           this.currentParticipant = record;
-          var dl2 = isSab ? 'Sabato' : 'Domenica';
           this.renderStatusFeedback(
-            '\u26a0\ufe0f INGRESSO ' + dl2.toUpperCase() + ' SBLOCCATO: ' + record.cognome + ' ' + record.nome + ' \u2014 quota ancora da regolarizzare.',
+            '\u26a0\ufe0f INGRESSO ' + dayLabel.toUpperCase() + ' SBLOCCATO: ' + record.cognome + ' ' + record.nome + ' \u2014 quota ancora da regolarizzare.',
             'warning', record
           );
         } else {
@@ -737,22 +785,17 @@
         try {
           await window.vespaDB.ensureInit();
           var all = await window.vespaDB.getAllRegistrations();
-          var mode = this.mode;
-          var isSab = (mode === 'ACCETTAZIONE_SABATO');
-          var isDom = (mode === 'ACCETTAZIONE_DOMENICA');
+          var mode = this.mode || '';
+          var dayCode = mode.startsWith('ACCETTAZIONE_') ? mode.replace('ACCETTAZIONE_', '').toUpperCase() : '';
 
-          // Filtra: Sabato mostra tutti i pacchetti con Sabato; Domenica tutti i pacchetti con Domenica
-          if (isSab || isDom) {
+          // Filtra: mostra solo chi ha il giorno incluso nel pacchetto
+          if (dayCode) {
             all = all.filter(function(r) {
-              if (window.VespaPkg) {
-                return isSab ? window.VespaPkg.packageIncludesSabato(r.modalitaPartecipazione) : window.VespaPkg.packageIncludesDomenica(r.modalitaPartecipazione);
+              if (window.VespaPkg && typeof window.VespaPkg.packageIncludesDay === 'function') {
+                return window.VespaPkg.packageIncludesDay(r.modalitaPartecipazione, dayCode);
               }
-              var mod = (r.modalitaPartecipazione || '').toUpperCase();
-              if (isSab) {
-                return mod.includes('SABATO') || mod.includes('FULL 2 GIORNI') || mod.includes('COMPLETA');
-              } else {
-                return mod.includes('DOMENICA') || mod.includes('FULL 2 GIORNI') || mod.includes('COMPLETA');
-              }
+              var isSab = (dayCode === 'SABATO' || dayCode === 'GIORNO_1');
+              return isSab ? window.VespaPkg.packageIncludesSabato(r.modalitaPartecipazione) : window.VespaPkg.packageIncludesDomenica(r.modalitaPartecipazione);
             });
           }
 
@@ -761,7 +804,7 @@
           });
 
           var self = this;
-          var dayText = isSab ? 'Sabato' : (isDom ? 'Domenica' : '');
+          var dayText = (currentDayObj && currentDayObj.name) ? currentDayObj.name : dayCode;
           var labelText = dayText
             ? "-- Seleziona partecipante (" + dayText + " - " + all.length + " iscritti) --"
             : "-- Seleziona partecipante dall'elenco --";

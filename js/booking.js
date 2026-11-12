@@ -127,6 +127,9 @@ class VespaBookingForm {
     setVal('annoVespa', record.annoVespa || '1980');
     setVal('tagliaTshirt', record.tagliaTshirt || 'L');
     setVal('modalitaPartecipazione', record.modalitaPartecipazione);
+    if (typeof window.renderPackageBadgePreview === 'function') {
+      window.renderPackageBadgePreview();
+    }
 
     // Gestione ricevuta di pagamento
     if (record.ricevutaPagamento && record.ricevutaPagamento.data) {
@@ -280,7 +283,7 @@ class VespaBookingForm {
         ruolo: document.getElementById('ruolo')?.value || 'CONDUCENTE',
         modelloVespa: (document.getElementById('modelloVespa')?.value || '').trim(),
         annoVespa: document.getElementById('annoVespa')?.value || '1980',
-        tagliaTshirt: document.getElementById('tagliaTshirt')?.value || 'L',
+        tagliaTshirt: (document.getElementById('tagliaTshirt')?.disabled) ? '' : (document.getElementById('tagliaTshirt')?.value || 'L'),
         modalitaPartecipazione: document.getElementById('modalitaPartecipazione')?.value,
         importoDovuto: (function() {
           if (orig && orig.importoDovuto !== undefined && orig.importoDovuto !== null) {
