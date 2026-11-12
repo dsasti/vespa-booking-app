@@ -310,7 +310,8 @@
       }
     }
 
-    // Intercetta la ricerca: se è il nome di un Vespa Club apre l'accettazione di gruppo
+    // Intercetta la ricerca: se è il nome di un Vespa Club apre l'accettazione di gruppo,
+    // altrimenti delega la ricerca a vespaScanner.lookupParticipant (che gestisce omonimie e cognome+nome)
     async function handleSearchOrScan(query) {
       if (!query || !query.trim()) return;
       var cleanQuery = query.trim();
@@ -328,34 +329,36 @@
           return;
         }
 
-        // 2. Se la query corrisponde esattamente al cognome di un partecipante, dai priorità al partecipante singolo
-        var cognomeMatch = all.filter(function(r) {
-          return (r.cognome || '').toUpperCase() === cleanQuery.toUpperCase();
-        });
-        if (cognomeMatch.length === 1 && !cleanQuery.toLowerCase().includes('club') && !cleanQuery.toLowerCase().includes('vespa')) {
-          if (window.vespaScanner) window.vespaScanner.lookupParticipant(cleanQuery);
-          return;
-        }
-
-        // 3. Cerca per nome club (esatto, o se contiene la query normalizzata)
+        // 2. Se è il nome esatto o molto simile di un Vespa Club (e non corrisponde al cognome di un partecipante)
         var qNorm = cleanQuery.toLowerCase().replace(/^(vespa\s+club|vc)\s+/i, '').trim();
+        var hasClubKeyword = cleanQuery.toLowerCase().includes('club') || cleanQuery.toLowerCase().includes('vespa');
         var clubMatches = all.filter(function(r) {
           var club = (r.vespaClub || '').toLowerCase();
           var clubNorm = club.replace(/^(vespa\s+club|vc)\s+/i, '').trim();
           return club === cleanQuery.toLowerCase() ||
-                 club.includes(cleanQuery.toLowerCase()) ||
+                 (hasClubKeyword && club.includes(cleanQuery.toLowerCase())) ||
                  (qNorm.length >= 3 && (clubNorm === qNorm || clubNorm.includes(qNorm)));
         });
 
-        // Se abbiamo trovato 1 o più partecipanti di questo Vespa Club, apri vista di gruppo!
-        if (clubMatches.length > 0) {
+        // Controlla se c'è invece corrispondenza con persona (cognome, nome, o entrambi)
+        var personMatches = all.filter(function(r) {
+          var cog = (r.cognome || '').toUpperCase();
+          var nom = (r.nome || '').toUpperCase();
+          var ful1 = cog + ' ' + nom;
+          var ful2 = nom + ' ' + cog;
+          var qUp = cleanQuery.toUpperCase();
+          return cog === qUp || ful1 === qUp || ful2 === qUp;
+        });
+
+        // Se non è una persona e ci sono match per club, apri vista di gruppo!
+        if (personMatches.length === 0 && clubMatches.length > 0) {
           var canonicalClubName = clubMatches[0].vespaClub;
           openGroupView(canonicalClubName, clubMatches);
           return;
         }
       }
 
-      // 3. Fallback standard: ricerca per cognome o ID
+      // 3. Delega standard a vespaScanner (gestisce singoli, omonimi con lista di scelta, 'cognome nome')
       if (window.vespaScanner) {
         window.vespaScanner.lookupParticipant(cleanQuery);
       }

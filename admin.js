@@ -30,13 +30,21 @@ class VespaAdminDashboard {
       await this.refreshData();
     });
 
-    // Polling automatico cloud: aggiorna la dashboard dal server ogni 4 secondi
+    // Controllo istantaneo ad altissima frequenza (ogni 1.5 secondi) tramite /api/pulse
+    let lastKnownChange = 0;
     setInterval(async () => {
-      if (window.vespaDB && typeof window.vespaDB.syncFromBackendIfAvailable === 'function') {
-        await window.vespaDB.syncFromBackendIfAvailable();
-        await this.refreshData();
-      }
-    }, 4000);
+      try {
+        const resp = await fetch('/api/pulse?_t=' + Date.now());
+        if (resp.ok) {
+          const pulse = await resp.json();
+          if (pulse.lastChange && pulse.lastChange !== lastKnownChange) {
+            lastKnownChange = pulse.lastChange;
+            await window.vespaDB.syncFromBackendIfAvailable();
+            await this.refreshData();
+          }
+        }
+      } catch (e) {}
+    }, 1500);
   }
 
   async refreshData() {
@@ -77,6 +85,19 @@ class VespaAdminDashboard {
     let presenceSabatoCount = 0;
     let presenceDomenicaCount = 0;
 
+    // Giorni evento correnti per statistiche dinamiche
+    const eventDays = (window.VespaPkg && typeof window.VespaPkg.getEventConfigDays === 'function')
+      ? window.VespaPkg.getEventConfigDays()
+      : [
+          { id: 'giorno_1', code: 'SABATO', name: 'Sabato' },
+          { id: 'giorno_2', code: 'DOMENICA', name: 'Domenica' }
+        ];
+
+    const dayCounts = {};
+    eventDays.forEach((d, idx) => {
+      dayCounts[d.id || `giorno_${idx + 1}`] = 0;
+    });
+
     const tshirts = { XS: 0, S: 0, M: 0, L: 0, XL: 0, XXL: 0, '3XL': 0 };
 
     this.allRegistrations.forEach(r => {
@@ -89,6 +110,18 @@ class VespaAdminDashboard {
 
       if (r.statoAccettazioneSabato) presenceSabatoCount++;
       if (r.statoAccettazioneDomenica) presenceDomenicaCount++;
+
+      // Conteggi dinamici per ciascun giorno configurato
+      eventDays.forEach((d, idx) => {
+        const dId = d.id || `giorno_${idx + 1}`;
+        if (idx === 0) {
+          if (r.statoAccettazioneSabato || r[`statoAccettazione_${dId}`]) dayCounts[dId]++;
+        } else if (idx === 1) {
+          if (r.statoAccettazioneDomenica || r[`statoAccettazione_${dId}`]) dayCounts[dId]++;
+        } else {
+          if (r[`statoAccettazione_${dId}`] || r[`statoAccettazione_${d.name}`]) dayCounts[dId]++;
+        }
+      });
 
       if (tshirts[r.tagliaTshirt] !== undefined) tshirts[r.tagliaTshirt]++;
     });
@@ -104,7 +137,22 @@ class VespaAdminDashboard {
     if (elTotal) elTotal.textContent = totalCount;
     if (elPaidEuro) elPaidEuro.textContent = `€ ${totalPaid} (su € ${totalExpected})`;
     if (elPendingEuro) elPendingEuro.textContent = `€ ${totalPending}`;
-    if (elPresenceBreakdown) elPresenceBreakdown.textContent = `Sab: ${presenceSabatoCount} | Dom: ${presenceDomenicaCount}`;
+    
+    if (elPresenceBreakdown) {
+      if (eventDays.length <= 2) {
+        const d1Name = eventDays[0] ? (eventDays[0].name.substring(0, 3)) : 'Sab';
+        const d2Name = eventDays[1] ? (eventDays[1].name.substring(0, 3)) : 'Dom';
+        const d1Cnt = eventDays[0] ? (dayCounts[eventDays[0].id] ?? presenceSabatoCount) : presenceSabatoCount;
+        const d2Cnt = eventDays[1] ? (dayCounts[eventDays[1].id] ?? presenceDomenicaCount) : presenceDomenicaCount;
+        elPresenceBreakdown.textContent = `${d1Name}: ${d1Cnt} | ${d2Name}: ${d2Cnt}`;
+      } else {
+        elPresenceBreakdown.textContent = eventDays.map((d, idx) => {
+          const short = (d.name || `G${idx + 1}`).substring(0, 3);
+          const cnt = dayCounts[d.id || `giorno_${idx + 1}`] || 0;
+          return `${short}: ${cnt}`;
+        }).join(' | ');
+      }
+    }
 
     if (elTshirts) {
       elTshirts.innerHTML = Object.entries(tshirts)
@@ -238,11 +286,13 @@ class VespaAdminDashboard {
         ? `<button class="btn btn-secondary btn-sm" onclick="window.vespaAdmin.togglePayment('${r.id}', 'NON_PAGATO')">🔄 Segna Non Pagato</button>`
         : `<button class="btn btn-success btn-sm" onclick="window.vespaAdmin.togglePayment('${r.id}', 'PAGATO')">✅ SEGNA PAGATO</button>`;
 
-      // Helper: bottone servizio con N.A. se non incluso nel pacchetto
-      const svcBtn = (serviceKey, field, alias, labelSì, labelNo, toggleKey) => {
+      // Helper: bottone servizio con N.A. se non incluso nel pacchetto e orario di erogazione se fruito
+      const svcBtn = (serviceKey, field, alias, labelSì, labelNo, toggleKey, timeField, timeAlias) => {
         if (!hasSvc(serviceKey)) return `<span style="color:var(--text-dim); font-size:0.8rem;">- Non Incluso -</span>`;
         const done = !!(r[field] || (alias && r[alias]));
-        return `<button class="btn ${done ? 'btn-success' : 'btn-secondary'} btn-sm" onclick="window.vespaAdmin.toggleService('${r.id}', '${toggleKey || field}')">${done ? labelSì : labelNo}</button>`;
+        const timeVal = done ? (r[timeField] || (timeAlias && r[timeAlias]) || '') : '';
+        const displayLabel = done ? (timeVal ? `${labelSì} (${timeVal})` : `${labelSì} (OK)`) : labelNo;
+        return `<button class="btn ${done ? 'btn-success' : 'btn-secondary'} btn-sm" onclick="window.vespaAdmin.toggleService('${r.id}', '${toggleKey || field}')">${displayLabel}</button>`;
       };
 
       // Colori tenui di riga per pacchetto/giorni di iscrizione (coerenti con il PDF)
@@ -309,27 +359,27 @@ class VespaAdminDashboard {
           <!-- GADGET (unico: sabato o domenica, non entrambe) -->
           <td>
             <button class="btn ${(r.ritiroGadget || r.kitGadgetConsegnato) ? 'btn-success' : 'btn-secondary'} btn-sm" onclick="window.vespaAdmin.toggleService('${r.id}', 'ritiroGadget')">
-              ${(r.ritiroGadget || r.kitGadgetConsegnato) ? 'RITIRATO' : 'DA CONSEGNARE'}
+              ${(r.ritiroGadget || r.kitGadgetConsegnato) ? `RITIRATO (${r.ritiroGadgetTimestamp || 'OK'})` : 'DA CONSEGNARE'}
             </button>
           </td>
 
           <!-- MERENDA SABATO -->
-          <td>${svcBtn('merendaSabato', 'merendaSabatoErogata', 'merenda', 'FRUITA', 'DA EROGARE', 'merenda')}</td>
+          <td>${svcBtn('merendaSabato', 'merendaSabatoErogata', 'merenda', 'FRUITA', 'DA EROGARE', 'merenda', 'merendaSabatoErogataTimestamp', 'merendaTimestamp')}</td>
 
           <!-- APERITIVO SABATO -->
-          <td>${svcBtn('aperitivoSabato', 'aperitivoSabatoErogato', null, 'FRUITO', 'DA EROGARE', 'aperitivoSabatoErogato')}</td>
+          <td>${svcBtn('aperitivoSabato', 'aperitivoSabatoErogato', null, 'FRUITO', 'DA EROGARE', 'aperitivoSabatoErogato', 'aperitivoSabatoErogatoTimestamp', 'aperitivoTimestamp')}</td>
 
           <!-- CENA SABATO -->
-          <td>${svcBtn('cena', 'cenaSabatoErogato', 'cena', 'FRUITA', 'DA EROGARE', 'cena')}</td>
+          <td>${svcBtn('cena', 'cenaSabatoErogato', 'cena', 'FRUITA', 'DA EROGARE', 'cena', 'cenaSabatoErogatoTimestamp', 'cenaTimestamp')}</td>
 
           <!-- COLAZIONE DOMENICA -->
-          <td>${svcBtn('colazioneDomenica', 'colazioneDomenicaErogata', null, 'FRUITA', 'DA EROGARE', 'colazioneDomenicaErogata')}</td>
+          <td>${svcBtn('colazioneDomenica', 'colazioneDomenicaErogata', null, 'FRUITA', 'DA EROGARE', 'colazioneDomenicaErogata', 'colazioneDomenicaErogataTimestamp')}</td>
 
           <!-- APERITIVO DOMENICA -->
-          <td>${svcBtn('aperitivoDomenica', 'aperitivoDomenicaErogato', null, 'FRUITO', 'DA EROGARE', 'aperitivoDomenicaErogato')}</td>
+          <td>${svcBtn('aperitivoDomenica', 'aperitivoDomenicaErogato', null, 'FRUITO', 'DA EROGARE', 'aperitivoDomenicaErogato', 'aperitivoDomenicaErogatoTimestamp', 'aperitivoTimestamp')}</td>
 
           <!-- PRANZO DOMENICA -->
-          <td>${svcBtn('pranzo', 'pranzoDomenicaErogato', 'pranzo', 'FRUITO', 'DA EROGARE', 'pranzo')}</td>
+          <td>${svcBtn('pranzo', 'pranzoDomenicaErogato', 'pranzo', 'FRUITO', 'DA EROGARE', 'pranzo', 'pranzoDomenicaErogatoTimestamp', 'pranzoTimestamp')}</td>
 
           <td>
             <div style="display:flex; gap:0.35rem; align-items:center; justify-content:center;">
@@ -2108,7 +2158,7 @@ function getCityAndDistance(cityOrClub, fallbackClub) {
 // ============================================================
 
 VespaAdminDashboard.prototype.switchConfigTab = function(tab) {
-  const tabs = ['pacchetti', 'pagamento'];
+  const tabs = ['evento', 'pacchetti', 'gadget', 'pagamento'];
   tabs.forEach(t => {
     const content = document.getElementById('configTab' + t.charAt(0).toUpperCase() + t.slice(1));
     const btn = document.getElementById('configTabBtn' + t.charAt(0).toUpperCase() + t.slice(1));
@@ -2127,23 +2177,38 @@ VespaAdminDashboard.prototype.switchConfigTab = function(tab) {
   if (tab === 'pagamento') {
     this.loadPaymentConfig();
   }
+  // Quando si apre la tab evento, carica i dati salvati
+  if (tab === 'evento') {
+    this.loadEventConfig();
+  }
+  // Quando si apre la tab gadget, carica e renderizza la config gadget
+  if (tab === 'gadget') {
+    this.renderGadgetConfig();
+  }
 };
 
 VespaAdminDashboard.prototype.loadPaymentConfig = function() {
   try {
     const raw = localStorage.getItem('vespa_payment_config');
-    const cfg = raw ? JSON.parse(raw) : {};
+    const cfg = raw ? JSON.parse(raw) : null;
 
-    const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
-    set('paymentConfigIntestatario', cfg.intestatario || 'Vespa Club Asti A.s.D.');
-    set('paymentConfigBanca',        cfg.banca        || 'Banca di Asti - Filiale Sede Centrale');
-    set('paymentConfigIban',         cfg.iban         || 'IT 76 AA 03069 10300 000012345678');
-    set('paymentConfigCausale',      cfg.causale      || '');
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val !== undefined && val !== null ? val : ''; };
+    if (cfg) {
+      set('paymentConfigIntestatario', cfg.intestatario !== undefined ? cfg.intestatario : '');
+      set('paymentConfigBanca',        cfg.banca !== undefined ? cfg.banca : '');
+      set('paymentConfigIban',         cfg.iban !== undefined ? cfg.iban : '');
+      set('paymentConfigCausale',      cfg.causale !== undefined ? cfg.causale : '');
+    } else {
+      set('paymentConfigIntestatario', 'Vespa Club Asti A.s.D.');
+      set('paymentConfigBanca',        'Banca di Asti - Filiale Sede Centrale');
+      set('paymentConfigIban',         'IT 76 AA 03069 10300 000012345678');
+      set('paymentConfigCausale',      '');
+    }
 
     // Carica il contenuto dell'editor ricco
     const editor = document.getElementById('paymentConfigRichEditor');
     if (editor) {
-      editor.innerHTML = cfg.richExtra || '';
+      editor.innerHTML = (cfg && cfg.richExtra) ? cfg.richExtra : '';
     }
 
     this.updatePaymentPreview();
@@ -2159,14 +2224,15 @@ VespaAdminDashboard.prototype.savePaymentConfig = function() {
     const richExtra = editor ? editor.innerHTML : '';
 
     const cfg = {
-      intestatario: get('paymentConfigIntestatario') || 'Vespa Club Asti A.s.D.',
-      banca:        get('paymentConfigBanca')        || 'Banca di Asti - Filiale Sede Centrale',
-      iban:         get('paymentConfigIban')         || '',
-      causale:      get('paymentConfigCausale')      || '',
+      intestatario: get('paymentConfigIntestatario'),
+      banca:        get('paymentConfigBanca'),
+      iban:         get('paymentConfigIban'),
+      causale:      get('paymentConfigCausale'),
       richExtra:    richExtra
     };
 
     localStorage.setItem('vespa_payment_config', JSON.stringify(cfg));
+    localStorage.setItem('vespa_payment_config_pulse', Date.now().toString());
 
     if (window.app && typeof window.app.showToast === 'function') {
       window.app.showToast('✅ Configurazione pagamento salvata! Visibile subito nella scheda prenotazione.', 'success');
@@ -2221,12 +2287,483 @@ VespaAdminDashboard.prototype.insertPaymentLink = function() {
   }
 };
 
-// Estende init() per caricare la config pagamento all'avvio se la tab è già aperta
+// Estende init() per caricare tutte le configurazioni all'avvio nei campi del form
 const _originalAdminInit = VespaAdminDashboard.prototype.init;
 VespaAdminDashboard.prototype.init = async function() {
   await _originalAdminInit.call(this);
-  // Precarica subito la config per popolare i campi se il pannello viene aperto
-  // (non serve fare il render dell'anteprima finché la tab non è attiva)
+  // Precarica subito tutte le configurazioni nei rispettivi form HTML
+  this.loadEventConfig();
+  this.loadPaymentConfig();
+  this.renderGadgetConfig();
+};
+
+// ============================================================
+// EVENT CONFIG (Nome Evento, Organizzazione, Date, Luogo, Logo, Sfondo, Giorni Dinamici)
+// ============================================================
+const VESPA_EVENT_CONFIG_KEY = 'vespa_event_config';
+const DEFAULT_VESPA_LOGO = 'https://primary.jwwb.nl/public/s/q/g/temp-ycombtvaxsaviqalrdpe/nuovo-frecce-high.png';
+
+const DEFAULT_EVENT_DAYS = [
+  { id: 'giorno_1', code: 'SABATO', name: 'Sabato', date: 'Sabato 20 Settembre 2026', icon: '🌙' },
+  { id: 'giorno_2', code: 'DOMENICA', name: 'Domenica', date: 'Domenica 21 Settembre 2026', icon: '☀️' }
+];
+
+VespaAdminDashboard.prototype.loadEventConfig = function() {
+  try {
+    const raw = localStorage.getItem(VESPA_EVENT_CONFIG_KEY);
+    const cfg = raw ? JSON.parse(raw) : {};
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+    set('eventConfigNomeBreve',      cfg.nomeBreve    || '');
+    set('eventConfigOrganizzazione', cfg.organizzazione || '');
+    set('eventConfigDescrizione',    cfg.descrizione  || '');
+    set('eventConfigDataSabato',     cfg.dataSabato   || '');
+    set('eventConfigDataDomenica',   cfg.dataDomenica || '');
+    set('eventConfigLuogo',          cfg.luogo        || '');
+
+    // Giorni evento dinamici
+    if (Array.isArray(cfg.giorni) && cfg.giorni.length > 0) {
+      this._eventDays = cfg.giorni;
+    } else if (cfg.dataSabato || cfg.dataDomenica) {
+      this._eventDays = [
+        { id: 'giorno_1', code: 'SABATO', name: 'Sabato', date: cfg.dataSabato || 'Sabato 20 Settembre 2026', icon: '🌙' },
+        { id: 'giorno_2', code: 'DOMENICA', name: 'Domenica', date: cfg.dataDomenica || 'Domenica 21 Settembre 2026', icon: '☀️' }
+      ];
+    } else {
+      this._eventDays = JSON.parse(JSON.stringify(DEFAULT_EVENT_DAYS));
+    }
+    this.renderEventDaysConfig();
+
+    // Logo
+    this._currentLogoBase64 = cfg.logoUrl || null;
+    const logoPrev = document.getElementById('eventConfigLogoPreview');
+    if (logoPrev) logoPrev.src = cfg.logoUrl || DEFAULT_VESPA_LOGO;
+
+    // Sfondo e opacità
+    this._currentBgBase64 = cfg.bgImageUrl || null;
+    const bgOpacity = (cfg.bgOpacity !== undefined && cfg.bgOpacity !== null) ? cfg.bgOpacity : 15;
+    const opacityInput = document.getElementById('eventConfigBgOpacity');
+    if (opacityInput) opacityInput.value = bgOpacity;
+    this.updateBgOpacity(bgOpacity);
+    this.renderBgPreview();
+
+    this.updateEventPreview();
+    // Aggancia input live update
+    ['eventConfigNomeBreve','eventConfigOrganizzazione','eventConfigDescrizione',
+     'eventConfigDataSabato','eventConfigDataDomenica','eventConfigLuogo'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && !el._eventListenerAttached) {
+        el.addEventListener('input', () => this.updateEventPreview());
+        el._eventListenerAttached = true;
+      }
+    });
+  } catch(e) { console.warn('Errore loadEventConfig:', e); }
+};
+
+VespaAdminDashboard.prototype.renderEventDaysConfig = function() {
+  const container = document.getElementById('eventDaysConfigList');
+  if (!container) return;
+
+  if (!this._eventDays || !this._eventDays.length) {
+    this._eventDays = JSON.parse(JSON.stringify(DEFAULT_EVENT_DAYS));
+  }
+
+  container.innerHTML = this._eventDays.map((day, idx) => `
+    <div style="display:flex; gap:0.6rem; align-items:center; background:#FFF; border:1px solid #CBD5E1; border-radius:8px; padding:0.6rem 0.8rem; flex-wrap:wrap;">
+      <div style="font-weight:900; color:var(--vespa-blue); min-width:85px; font-size:0.85rem; display:flex; align-items:center; gap:0.35rem;">
+        <span>${day.icon || '📅'}</span>
+        <span>Giorno ${idx + 1}</span>
+      </div>
+      <div style="flex:1; min-width:140px;">
+        <input type="text" id="eventDayName_${idx}" value="${(day.name || '').replace(/"/g, '&quot;')}"
+          placeholder="Nome (es. Sabato, Venerdì)"
+          oninput="window.vespaAdmin && window.vespaAdmin.onDayChanged(${idx})"
+          style="width:100%; padding:0.4rem 0.65rem; border:1.5px solid #CBD5E1; border-radius:6px; font-size:0.88rem; font-weight:700; color:#1E293B;">
+      </div>
+      <div style="flex:2; min-width:200px;">
+        <input type="text" id="eventDayDate_${idx}" value="${(day.date || '').replace(/"/g, '&quot;')}"
+          placeholder="Data completa (es. Sabato 20 Settembre 2026)"
+          oninput="window.vespaAdmin && window.vespaAdmin.onDayChanged(${idx})"
+          style="width:100%; padding:0.4rem 0.65rem; border:1.5px solid #CBD5E1; border-radius:6px; font-size:0.88rem; font-weight:600; color:#334155;">
+      </div>
+      <div>
+        <button type="button" class="btn btn-sm" onclick="window.vespaAdmin && window.vespaAdmin.removeEventDay(${idx})"
+          style="background:#FEE2E2; color:#B91C1C; border:1px solid #FCA5A5; font-weight:800; padding:0.35rem 0.65rem; cursor:pointer;"
+          title="Elimina questa giornata">
+          🗑️
+        </button>
+      </div>
+    </div>
+  `).join('');
+};
+
+VespaAdminDashboard.prototype.addEventDay = function() {
+  if (!this._eventDays) this._eventDays = [];
+  const nextIdx = this._eventDays.length + 1;
+  const icons = ['🌟', '🌙', '☀️', '🏁', '🛵', '🎉'];
+  const icon = icons[(nextIdx - 1) % icons.length];
+  this._eventDays.push({
+    id: `giorno_${nextIdx}`,
+    code: `GIORNO_${nextIdx}`,
+    name: `Giorno ${nextIdx}`,
+    date: `Data Giorno ${nextIdx}`,
+    icon: icon
+  });
+  this.renderEventDaysConfig();
+  this.updateEventPreview();
+};
+
+VespaAdminDashboard.prototype.removeEventDay = function(idx) {
+  if (!this._eventDays) return;
+  if (this._eventDays.length <= 1) {
+    alert('L\'evento deve avere almeno una giornata configurata.');
+    return;
+  }
+  this._eventDays.splice(idx, 1);
+  this.renderEventDaysConfig();
+  this.updateEventPreview();
+};
+
+VespaAdminDashboard.prototype.onDayChanged = function(idx) {
+  if (!this._eventDays || !this._eventDays[idx]) return;
+  const nameEl = document.getElementById(`eventDayName_${idx}`);
+  const dateEl = document.getElementById(`eventDayDate_${idx}`);
+  if (nameEl) this._eventDays[idx].name = nameEl.value.trim() || `Giorno ${idx + 1}`;
+  if (dateEl) this._eventDays[idx].date = dateEl.value.trim();
+  this.updateEventPreview();
+};
+
+VespaAdminDashboard.prototype.handleLogoUpload = function(input) {
+  if (!input || !input.files || !input.files[0]) return;
+  const file = input.files[0];
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    this._currentLogoBase64 = e.target.result;
+    const logoPrev = document.getElementById('eventConfigLogoPreview');
+    if (logoPrev) logoPrev.src = this._currentLogoBase64;
+    this.updateEventPreview();
+    if (window.app && window.app.showToast) {
+      window.app.showToast('Logo caricato! Clicca "Salva tutto" per applicarlo all\'intera app.', 'info');
+    }
+  };
+  reader.readAsDataURL(file);
+};
+
+VespaAdminDashboard.prototype.resetLogo = function() {
+  this._currentLogoBase64 = null;
+  const logoPrev = document.getElementById('eventConfigLogoPreview');
+  if (logoPrev) logoPrev.src = DEFAULT_VESPA_LOGO;
+  const fileInput = document.getElementById('eventConfigLogoFile');
+  if (fileInput) fileInput.value = '';
+  this.updateEventPreview();
+  if (window.app && window.app.showToast) {
+    window.app.showToast('Logo predefinito ripristinato.', 'info');
+  }
+};
+
+VespaAdminDashboard.prototype.handleBgUpload = function(input) {
+  if (!input || !input.files || !input.files[0]) return;
+  const file = input.files[0];
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    this._currentBgBase64 = e.target.result;
+    this.renderBgPreview();
+    if (window.app && window.app.showToast) {
+      window.app.showToast('Immagine di sfondo caricata! Clicca "Salva tutto" per applicarla.', 'info');
+    }
+  };
+  reader.readAsDataURL(file);
+};
+
+VespaAdminDashboard.prototype.removeBgImage = function() {
+  this._currentBgBase64 = null;
+  const fileInput = document.getElementById('eventConfigBgFile');
+  if (fileInput) fileInput.value = '';
+  this.renderBgPreview();
+  if (window.app && window.app.showToast) {
+    window.app.showToast('Immagine di sfondo rimossa.', 'info');
+  }
+};
+
+VespaAdminDashboard.prototype.renderBgPreview = function() {
+  const previewImg = document.getElementById('eventConfigBgPreview');
+  const emptyLbl = document.getElementById('eventConfigBgEmptyLbl');
+  if (previewImg && emptyLbl) {
+    if (this._currentBgBase64) {
+      previewImg.src = this._currentBgBase64;
+      previewImg.style.display = 'block';
+      emptyLbl.style.display = 'none';
+    } else {
+      previewImg.src = '';
+      previewImg.style.display = 'none';
+      emptyLbl.style.display = 'block';
+    }
+  }
+};
+
+VespaAdminDashboard.prototype.updateBgOpacity = function(val) {
+  const lbl = document.getElementById('eventConfigBgOpacityVal');
+  if (lbl) lbl.textContent = val + '%';
+};
+
+VespaAdminDashboard.prototype.updateEventPreview = function() {
+  const get = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  const setPrev = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val || '—'; };
+  setPrev('eventPrevNome',  get('eventConfigNomeBreve') || '—');
+  setPrev('eventPrevOrg',   get('eventConfigOrganizzazione') || '—');
+  setPrev('eventPrevDesc',  get('eventConfigDescrizione') || '—');
+  setPrev('eventPrevLuogo', get('eventConfigLuogo') || '—');
+
+  // Anteprima giorni dinamica
+  const daysContainer = document.getElementById('eventPrevDaysContainer');
+  if (daysContainer && Array.isArray(this._eventDays)) {
+    const daysHtml = this._eventDays.map(d => `<span>📅 <strong>${d.name || 'Giorno'}:</strong> ${d.date || '—'}</span>`).join(' ');
+    daysContainer.innerHTML = `${daysHtml} <span>📍 <span id="eventPrevLuogo">${get('eventConfigLuogo') || '—'}</span></span>`;
+  }
+};
+
+VespaAdminDashboard.prototype.saveEventConfig = function() {
+  try {
+    const get = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+    const opacityInput = document.getElementById('eventConfigBgOpacity');
+    const opacityNum = opacityInput ? parseInt(opacityInput.value, 10) : 15;
+
+    // Raccoglie i giorni modificati
+    if (Array.isArray(this._eventDays)) {
+      this._eventDays.forEach((d, idx) => {
+        const nameEl = document.getElementById(`eventDayName_${idx}`);
+        const dateEl = document.getElementById(`eventDayDate_${idx}`);
+        if (nameEl) d.name = nameEl.value.trim() || d.name;
+        if (dateEl) d.date = dateEl.value.trim() || d.date;
+      });
+    }
+
+    const firstDay = this._eventDays && this._eventDays[0] ? this._eventDays[0].date : get('eventConfigDataSabato');
+    const secondDay = this._eventDays && this._eventDays[1] ? this._eventDays[1].date : get('eventConfigDataDomenica');
+
+    const cfg = {
+      nomeBreve:      get('eventConfigNomeBreve'),
+      organizzazione: get('eventConfigOrganizzazione'),
+      descrizione:    get('eventConfigDescrizione'),
+      dataSabato:     firstDay,
+      dataDomenica:   secondDay,
+      giorni:         this._eventDays || DEFAULT_EVENT_DAYS,
+      luogo:          get('eventConfigLuogo'),
+      logoUrl:        this._currentLogoBase64 || null,
+      bgImageUrl:     this._currentBgBase64 || null,
+      bgOpacity:      opacityNum
+    };
+    localStorage.setItem(VESPA_EVENT_CONFIG_KEY, JSON.stringify(cfg));
+    // Notifica altre schede
+    localStorage.setItem('vespa_event_config_pulse', Date.now().toString());
+    if (window.app && typeof window.app.showToast === 'function') {
+      window.app.showToast('✅ Configurazione evento salvata! Giorni, logo, testi e sfondo aggiornati in tutte le pagine.', 'success');
+    } else {
+      alert('✅ Configurazione evento salvata!');
+    }
+  } catch(e) {
+    console.warn('Errore saveEventConfig:', e);
+    alert('Errore durante il salvataggio: ' + e.message);
+  }
+};
+
+/**
+ * Ritorna la configurazione evento corrente (usabile da altre pagine).
+ */
+function getEventConfig() {
+  try {
+    const raw = localStorage.getItem(VESPA_EVENT_CONFIG_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch(e) { return {}; }
+}
+window.getEventConfig = getEventConfig;
+
+// ============================================================
+// GADGET CONFIG
+// ============================================================
+const VESPA_GADGET_CONFIG_KEY = 'vespa_gadget_config';
+
+const VESPA_GADGET_DEFAULTS = [
+  { id: 'gadget_tshirt', label: '👕 T-Shirt / Abbigliamento', desc: 'Capo di abbigliamento o kit gadget con scelta taglia (S, M, L, XL, XXL, 3XL)', active: true, isClothing: true, availableSizes: 'S, M, L, XL, XXL, 3XL' },
+  { id: 'gadget_borsa',  label: '👜 Borsa / Zaino Evento',    desc: 'Borsa ufficiale dell\'evento (se prevista)', active: false, isClothing: false, availableSizes: '' },
+  { id: 'gadget_patch',  label: '🏅 Patch / Toppa',           desc: 'Patch o toppa personalizzata con il logo del raduno', active: false, isClothing: false, availableSizes: '' },
+  { id: 'gadget_spilla', label: '📌 Spilla / Pin',            desc: 'Spilla o pin commemorativo dell\'evento', active: false, isClothing: false, availableSizes: '' },
+  { id: 'gadget_targa',  label: '🪧 Targa / Diploma',         desc: 'Targa o diploma di partecipazione', active: false, isClothing: false, availableSizes: '' }
+];
+
+function loadGadgetConfig() {
+  try {
+    const raw = localStorage.getItem(VESPA_GADGET_CONFIG_KEY);
+    if (raw) {
+      const saved = JSON.parse(raw);
+      // Merge: gadget default non in config ricevono i default
+      return VESPA_GADGET_DEFAULTS.map(g => {
+        const override = saved.find(s => s.id === g.id);
+        return override ? { ...g, ...override } : { ...g };
+      }).concat(
+        // Aggiungi eventuali gadget personalizzati non nei default
+        saved.filter(s => !VESPA_GADGET_DEFAULTS.find(g => g.id === s.id))
+      );
+    }
+  } catch(e) {}
+  return VESPA_GADGET_DEFAULTS.map(g => ({ ...g }));
+}
+
+function saveGadgetConfig(config) {
+  try {
+    localStorage.setItem(VESPA_GADGET_CONFIG_KEY, JSON.stringify(config));
+    localStorage.setItem('vespa_gadget_config_pulse', Date.now().toString());
+  } catch(e) {}
+}
+
+function getActiveGadgets() {
+  return loadGadgetConfig().filter(g => g.active !== false);
+}
+
+// Verifica se c'è almeno un gadget attivo di tipo abbigliamento e ritorna le taglie disponibili
+function getActiveClothingSizesInfo() {
+  const activeGadgets = getActiveGadgets();
+  const clothingGadget = activeGadgets.find(g => g.isClothing === true);
+  if (!clothingGadget) {
+    return { enabled: false, sizes: [], label: '' };
+  }
+  const rawSizes = (clothingGadget.availableSizes && clothingGadget.availableSizes.trim())
+    ? clothingGadget.availableSizes
+    : 'S, M, L, XL, XXL, 3XL';
+  const sizes = rawSizes.split(',').map(s => s.trim()).filter(Boolean);
+  return {
+    enabled: true,
+    sizes: sizes.length ? sizes : ['S', 'M', 'L', 'XL', 'XXL', '3XL'],
+    label: clothingGadget.label
+  };
+}
+
+window.VespaGadget = { loadGadgetConfig, saveGadgetConfig, getActiveGadgets, getActiveClothingSizesInfo };
+
+VespaAdminDashboard.prototype.toggleClothingFields = function(idx, isChecked) {
+  const wrap = document.getElementById(`gadget-clothing-wrap-${idx}`);
+  if (wrap) {
+    wrap.style.display = isChecked ? 'block' : 'none';
+  }
+};
+
+VespaAdminDashboard.prototype.onGadgetToggleChange = function(idx, checked) {
+  const config = loadGadgetConfig();
+  if (config[idx]) {
+    config[idx].active = checked;
+    saveGadgetConfig(config);
+  }
+  this.renderGadgetConfig();
+  if (window.app && typeof window.app.showToast === 'function') {
+    const gName = config[idx] ? config[idx].label : `Gadget ${idx + 1}`;
+    window.app.showToast(checked ? `✅ "${gName}" attivato per l'evento.` : `⛔ "${gName}" disattivato.`, checked ? 'success' : 'info');
+  }
+};
+
+VespaAdminDashboard.prototype.renderGadgetConfig = function() {
+  const grid = document.getElementById('gadgetConfigGrid');
+  if (!grid) return;
+  const config = loadGadgetConfig();
+
+  grid.innerHTML = config.map((g, idx) => {
+    const isActive = g.active !== false;
+    const isClothing = g.isClothing === true;
+    const currentSizes = (g.availableSizes !== undefined && g.availableSizes !== null)
+      ? g.availableSizes
+      : (isClothing ? 'S, M, L, XL, XXL, 3XL' : '');
+
+    return `
+      <div style="background:#FFF; border:2px solid ${isActive ? '#10B981' : '#E2E8F0'}; border-radius:14px; padding:1.25rem; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05); display:flex; flex-direction:column; gap:0.85rem; ${isActive ? '' : 'opacity:0.75; background:#F8FAFC;'}">
+        <!-- Label editabile -->
+        <div>
+          <label style="font-size:0.72rem; font-weight:800; color:var(--vespa-blue-dark); text-transform:uppercase; display:block; margin-bottom:0.3rem;">📛 Nome Gadget</label>
+          <input type="text" id="gadget-label-${idx}" value="${g.label.replace(/"/g,'&quot;')}"
+            style="width:100%; padding:0.45rem 0.7rem; border:1.5px solid #cbd5e1; border-radius:8px; font-size:0.92rem; font-weight:700; box-sizing:border-box; color:var(--vespa-blue-dark);">
+        </div>
+        <!-- Descrizione editabile -->
+        <div>
+          <label style="font-size:0.72rem; font-weight:800; color:var(--vespa-blue-dark); text-transform:uppercase; display:block; margin-bottom:0.3rem;">📝 Descrizione</label>
+          <input type="text" id="gadget-desc-${idx}" value="${(g.desc||'').replace(/"/g,'&quot;')}"
+            style="width:100%; padding:0.45rem 0.7rem; border:1.5px solid #cbd5e1; border-radius:8px; font-size:0.82rem; font-weight:500; box-sizing:border-box;">
+        </div>
+
+        <!-- Sezione Capo di Abbigliamento e Taglie -->
+        <div style="background:#F1F5F9; border:1.5px solid #CBD5E1; border-radius:10px; padding:0.75rem;">
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <div>
+              <label for="gadget-isclothing-${idx}" style="font-size:0.82rem; font-weight:800; color:#1E293B; cursor:pointer; margin:0; display:flex; align-items:center; gap:0.35rem;">
+                👕 È un capo di abbigliamento con taglia
+              </label>
+              <span style="font-size:0.72rem; color:var(--text-muted);">
+                Attiva la richiesta taglia nella pagina di iscrizione
+              </span>
+            </div>
+            <input type="checkbox" id="gadget-isclothing-${idx}" ${isClothing ? 'checked' : ''}
+              onchange="window.vespaAdmin && window.vespaAdmin.toggleClothingFields(${idx}, this.checked)"
+              style="width:18px; height:18px; cursor:pointer; accent-color:#005A9C;">
+          </div>
+
+          <div id="gadget-clothing-wrap-${idx}" style="margin-top:0.6rem; ${isClothing ? '' : 'display:none;'}">
+            <label style="font-size:0.72rem; font-weight:800; color:var(--vespa-blue-dark); text-transform:uppercase; display:block; margin-bottom:0.25rem;">
+              🏷️ Taglie disponibili (separate da virgola):
+            </label>
+            <input type="text" id="gadget-sizes-${idx}" value="${currentSizes.replace(/"/g,'&quot;')}"
+              placeholder="Es. XS, S, M, L, XL, XXL, 3XL"
+              style="width:100%; padding:0.4rem 0.65rem; border:1.5px solid #94A3B8; border-radius:6px; font-size:0.85rem; font-weight:700; color:#0F172A; box-sizing:border-box; background:#FFF;">
+            <div style="font-size:0.7rem; color:#64748B; margin-top:3px;">
+              Queste taglie compariranno nel menu a tendina della pagina di iscrizione.
+            </div>
+          </div>
+        </div>
+
+        <!-- Toggle attivo/disattivo -->
+        <div style="display:flex; align-items:center; justify-content:space-between; background:#F8FAFC; padding:0.6rem 0.85rem; border-radius:10px; border:1px solid #E2E8F0;">
+          <div>
+            <label for="gadget-toggle-${idx}" style="font-size:0.88rem; font-weight:800; color:#1E293B; cursor:pointer; margin:0; display:block;">
+              Gadget Presente nell'Evento
+            </label>
+            <span style="font-size:0.75rem; color:var(--text-muted);">
+              ${isActive ? '✅ Attivo — comparirà nelle distribuzioni' : '⛔ Disattivato — non comparirà'}
+            </span>
+          </div>
+          <label style="position:relative; display:inline-block; width:48px; height:26px; margin:0; cursor:pointer;">
+            <input type="checkbox" id="gadget-toggle-${idx}" ${isActive ? 'checked' : ''} onchange="window.vespaAdmin && window.vespaAdmin.onGadgetToggleChange(${idx}, this.checked)" style="opacity:0; width:0; height:0;">
+            <span style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:${isActive ? '#10B981' : '#CBD5E1'}; transition:.3s; border-radius:26px;">
+              <span style="position:absolute; height:20px; width:20px; left:${isActive ? '24px' : '3px'}; bottom:3px; background-color:white; transition:.3s; border-radius:50%; box-shadow:0 2px 4px rgba(0,0,0,0.2);"></span>
+            </span>
+          </label>
+        </div>
+        <!-- Stato badge -->
+        <div style="text-align:right;">
+          <span style="font-size:0.75rem; font-weight:800; padding:0.25rem 0.65rem; border-radius:999px; background:${isActive ? '#DCFCE7' : '#FEE2E2'}; color:${isActive ? '#15803D' : '#B91C1C'}; border:1px solid ${isActive ? '#86EFAC' : '#FCA5A5'};">
+            ${isActive ? '✅ PRESENTE' : '⛔ NON PREVISTO'}
+          </span>
+        </div>
+      </div>`;
+  }).join('');
+};
+
+VespaAdminDashboard.prototype.saveGadgetConfig = function() {
+  const config = loadGadgetConfig();
+  config.forEach((g, idx) => {
+    const labelEl      = document.getElementById(`gadget-label-${idx}`);
+    const descEl       = document.getElementById(`gadget-desc-${idx}`);
+    const toggleEl     = document.getElementById(`gadget-toggle-${idx}`);
+    const isClothingEl = document.getElementById(`gadget-isclothing-${idx}`);
+    const sizesEl      = document.getElementById(`gadget-sizes-${idx}`);
+
+    if (labelEl)      g.label  = labelEl.value.trim() || g.label;
+    if (descEl)       g.desc   = descEl.value.trim();
+    if (toggleEl)     g.active = toggleEl.checked;
+    if (isClothingEl) g.isClothing = isClothingEl.checked;
+    if (sizesEl)      g.availableSizes = sizesEl.value.trim();
+  });
+  saveGadgetConfig(config);
+  this.renderGadgetConfig();
+  if (window.app && typeof window.app.showToast === 'function') {
+    window.app.showToast('✅ Configurazione gadget e taglie salvata!', 'success');
+  } else {
+    alert('✅ Configurazione gadget e taglie salvata!');
+  }
 };
 
 window.vespaAdmin = new VespaAdminDashboard();

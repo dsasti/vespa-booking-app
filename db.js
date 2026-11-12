@@ -362,8 +362,53 @@ class VespaDB {
     return all.find(r => 
       (r.id && r.id.toUpperCase() === cleanId) || 
       (r.cognome && r.cognome.toUpperCase() === cleanId) || 
-      (r.tesseraVci && r.tesseraVci.toUpperCase() === cleanId)
+      (r.tesseraVci && r.tesseraVci.toUpperCase() === cleanId) ||
+      ((r.cognome + ' ' + r.nome).trim().toUpperCase() === cleanId) ||
+      ((r.nome + ' ' + r.cognome).trim().toUpperCase() === cleanId)
     ) || null;
+  }
+
+  async searchParticipants(query) {
+    if (!query) return [];
+    await this.ensureInit();
+    const cleanQuery = query.toString().trim();
+    if (!cleanQuery) return [];
+    const qUpper = cleanQuery.toUpperCase();
+    const all = await this.getAllRegistrations();
+
+    // 1. Corrispondenza esatta per ID o Tessera VCI
+    const exactId = all.find(r => 
+      (r.id && r.id.toUpperCase() === qUpper) ||
+      (r.tesseraVci && r.tesseraVci.toUpperCase() === qUpper)
+    );
+    if (exactId) return [exactId];
+
+    // 2. Corrispondenza esatta per Cognome + Nome o Nome + Cognome
+    const exactFullName = all.filter(r => {
+      const ful1 = `${r.cognome || ''} ${r.nome || ''}`.trim().toUpperCase();
+      const ful2 = `${r.nome || ''} ${r.cognome || ''}`.trim().toUpperCase();
+      return ful1 === qUpper || ful2 === qUpper;
+    });
+    if (exactFullName.length > 0) return exactFullName;
+
+    // 3. Corrispondenza esatta solo per Cognome
+    const exactCognome = all.filter(r => (r.cognome || '').trim().toUpperCase() === qUpper);
+    if (exactCognome.length > 0) return exactCognome;
+
+    // 4. Ricerca per token (parole multiple: es. 'Massano Ivan' o parti di testo)
+    const tokens = qUpper.split(/\s+/).filter(Boolean);
+    const tokenMatches = all.filter(r => {
+      const cog = (r.cognome || '').toUpperCase();
+      const nom = (r.nome || '').toUpperCase();
+      const id = (r.id || '').toUpperCase();
+      const club = (r.vespaClub || '').toUpperCase();
+      const vci = (r.tesseraVci || '').toUpperCase();
+      return tokens.every(tok => 
+        cog.includes(tok) || nom.includes(tok) || id.includes(tok) || club.includes(tok) || vci.includes(tok)
+      );
+    });
+
+    return tokenMatches;
   }
 
   async toggleServiceStatus(id, serviceKey) {
@@ -409,20 +454,27 @@ class VespaDB {
       record.merendaSabatoErogata = newVal;
       record.merendaTimestamp = newVal ? now : null;
       record.merendaSabatoErogataTimestamp = newVal ? now : null;
-    } else if (serviceKey === 'statoAccettazioneSabato') {
+    } else if (serviceKey === 'statoAccettazioneSabato' || serviceKey === 'statoAccettazione_giorno_1') {
       record.statoAccettazioneSabato = newVal;
+      record.statoAccettazione_giorno_1 = newVal;
       record.accettazioneSabatoTimestamp = newVal ? now : null;
+      record.statoAccettazione_giorno_1Timestamp = newVal ? now : null;
       // Ricalcola accettazioneConclusa: true solo se ENTRAMBI i giorni sono true
       record.accettazioneConclusa = !!(record.statoAccettazioneSabato && record.statoAccettazioneDomenica);
       if (!record.accettazioneConclusa) record.accettazioneTimestamp = null;
       else if (!record.accettazioneTimestamp) record.accettazioneTimestamp = now;
-    } else if (serviceKey === 'statoAccettazioneDomenica') {
+    } else if (serviceKey === 'statoAccettazioneDomenica' || serviceKey === 'statoAccettazione_giorno_2') {
       record.statoAccettazioneDomenica = newVal;
+      record.statoAccettazione_giorno_2 = newVal;
       record.accettazioneDomenicaTimestamp = newVal ? now : null;
+      record.statoAccettazione_giorno_2Timestamp = newVal ? now : null;
       // Ricalcola accettazioneConclusa: true solo se ENTRAMBI i giorni sono true
       record.accettazioneConclusa = !!(record.statoAccettazioneSabato && record.statoAccettazioneDomenica);
       if (!record.accettazioneConclusa) record.accettazioneTimestamp = null;
       else if (!record.accettazioneTimestamp) record.accettazioneTimestamp = now;
+    } else if (serviceKey.startsWith('statoAccettazione_')) {
+      record[serviceKey] = newVal;
+      record[serviceKey + 'Timestamp'] = newVal ? now : null;
     }
 
     return await this.saveRegistration(record);
@@ -470,17 +522,29 @@ class VespaDB {
 
   async syncFromBackendIfAvailable() {
     try {
-      const res = await fetch('/api/registrations');
+      const res = await fetch('/api/registrations?_t=' + Date.now());
       if (res.ok) {
         const list = await res.json();
         if (Array.isArray(list) && list.length > 0) {
-          // Sincronizza SEMPRE i record remoti dal database cloud
-          for (const item of list) {
-            await this.saveRegistration(item);
+          // Aggiorna in blocco IndexedDB e LocalStorage in modo istantaneo
+          if (this.db) {
+            await new Promise((resolve) => {
+              try {
+                const tx = this.db.transaction(this.storeName, 'readwrite');
+                const store = tx.objectStore(this.storeName);
+                list.forEach(item => store.put(item));
+                tx.oncomplete = () => resolve(true);
+                tx.onerror = () => resolve(false);
+              } catch(e) { resolve(false); }
+            });
           }
+          this.setLocalStorageAll(list);
+          this.notifyListeners({ type: 'DATA_UPDATED', action: 'REMOTE_SYNC', list });
+          return list;
         }
       }
     } catch (e) {}
+    return null;
   }
 
   // 100 ISCRIZIONI DEMO DIVERSIFICATE E REALISTICHE (ITALIA ED ESTERO) PER IL VESPA CLUB ASTI

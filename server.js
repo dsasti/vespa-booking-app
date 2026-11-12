@@ -363,7 +363,9 @@ const server = http.createServer(async (req, res) => {
     const found = list.find(r => 
       (r.id && r.id.toUpperCase() === query) ||
       (r.cognome && r.cognome.toUpperCase() === query) ||
-      (r.tesseraVci && r.tesseraVci.toUpperCase() === query)
+      (r.tesseraVci && r.tesseraVci.toUpperCase() === query) ||
+      (`${r.cognome || ''} ${r.nome || ''}`.trim().toUpperCase() === query) ||
+      (`${r.nome || ''} ${r.cognome || ''}`.trim().toUpperCase() === query)
     );
     if (found) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
