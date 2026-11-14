@@ -2644,11 +2644,11 @@ window.getEventConfig = getEventConfig;
 const VESPA_GADGET_CONFIG_KEY = 'vespa_gadget_config';
 
 const VESPA_GADGET_DEFAULTS = [
-  { id: 'gadget_tshirt', label: '👕 T-Shirt / Abbigliamento', desc: 'Capo di abbigliamento o kit gadget con scelta taglia (S, M, L, XL, XXL, 3XL)', active: true, isClothing: true, availableSizes: 'S, M, L, XL, XXL, 3XL' },
-  { id: 'gadget_borsa',  label: '👜 Borsa / Zaino Evento',    desc: 'Borsa ufficiale dell\'evento (se prevista)', active: false, isClothing: false, availableSizes: '' },
-  { id: 'gadget_patch',  label: '🏅 Patch / Toppa',           desc: 'Patch o toppa personalizzata con il logo del raduno', active: false, isClothing: false, availableSizes: '' },
-  { id: 'gadget_spilla', label: '📌 Spilla / Pin',            desc: 'Spilla o pin commemorativo dell\'evento', active: false, isClothing: false, availableSizes: '' },
-  { id: 'gadget_targa',  label: '🪧 Targa / Diploma',         desc: 'Targa o diploma di partecipazione', active: false, isClothing: false, availableSizes: '' }
+  { id: 'gadget_tshirt', label: '👕 T-Shirt / Abbigliamento', desc: 'Capo di abbigliamento o kit gadget con scelta taglia (S, M, L, XL, XXL, 3XL)', active: true, isClothing: true, availableSizes: 'S, M, L, XL, XXL, 3XL', isPaid: false, price: 0 },
+  { id: 'gadget_borsa',  label: '👜 Borsa / Zaino Evento',    desc: 'Borsa ufficiale dell\'evento (se prevista)', active: false, isClothing: false, availableSizes: '', isPaid: false, price: 0 },
+  { id: 'gadget_patch',  label: '🏅 Patch / Toppa',           desc: 'Patch o toppa personalizzata con il logo del raduno', active: false, isClothing: false, availableSizes: '', isPaid: false, price: 0 },
+  { id: 'gadget_spilla', label: '📌 Spilla / Pin',            desc: 'Spilla o pin commemorativo dell\'evento', active: false, isClothing: false, availableSizes: '', isPaid: false, price: 0 },
+  { id: 'gadget_targa',  label: '🪧 Targa / Diploma',         desc: 'Targa o diploma di partecipazione', active: false, isClothing: false, availableSizes: '', isPaid: false, price: 0 }
 ];
 
 function loadGadgetConfig() {
@@ -2710,6 +2710,18 @@ VespaAdminDashboard.prototype.toggleClothingFields = function(idx, isChecked) {
   }
 };
 
+VespaAdminDashboard.prototype.togglePaidGadgetFields = function(idx, isChecked) {
+  const wrap = document.getElementById(`gadget-price-wrap-${idx}`);
+  if (wrap) {
+    wrap.style.display = isChecked ? 'block' : 'none';
+  }
+  const config = loadGadgetConfig();
+  if (config[idx]) {
+    config[idx].isPaid = isChecked;
+    saveGadgetConfig(config);
+  }
+};
+
 VespaAdminDashboard.prototype.onGadgetToggleChange = function(idx, checked) {
   const config = loadGadgetConfig();
   if (config[idx]) {
@@ -2731,6 +2743,8 @@ VespaAdminDashboard.prototype.renderGadgetConfig = function() {
   grid.innerHTML = config.map((g, idx) => {
     const isActive = g.active !== false;
     const isClothing = g.isClothing === true;
+    const isPaid = g.isPaid === true;
+    const currentPrice = (g.price !== undefined && g.price !== null) ? g.price : 0;
     const currentSizes = (g.availableSizes !== undefined && g.availableSizes !== null)
       ? g.availableSizes
       : (isClothing ? 'S, M, L, XL, XXL, 3XL' : '');
@@ -2748,6 +2762,43 @@ VespaAdminDashboard.prototype.renderGadgetConfig = function() {
           <label style="font-size:0.72rem; font-weight:800; color:var(--vespa-blue-dark); text-transform:uppercase; display:block; margin-bottom:0.3rem;">📝 Descrizione</label>
           <input type="text" id="gadget-desc-${idx}" value="${(g.desc||'').replace(/"/g,'&quot;')}"
             style="width:100%; padding:0.45rem 0.7rem; border:1.5px solid #cbd5e1; border-radius:8px; font-size:0.82rem; font-weight:500; box-sizing:border-box;">
+        </div>
+
+        <!-- Sezione Gratuito vs A Pagamento con Tasto Switch -->
+        <div style="background:#F8FAFC; border:1.5px solid #CBD5E1; border-radius:10px; padding:0.75rem;">
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <div>
+              <label for="gadget-ispaid-${idx}" style="font-size:0.85rem; font-weight:800; color:#1E293B; cursor:pointer; margin:0; display:flex; align-items:center; gap:0.35rem;">
+                💶 Gadget a Pagamento
+              </label>
+              <span style="font-size:0.72rem; color:var(--text-muted);">
+                ${isPaid ? 'A pagamento (il cliente può acquistarlo opzionalmente)' : 'Gratuito (incluso con l\'iscrizione)'}
+              </span>
+            </div>
+            <label style="position:relative; display:inline-block; width:48px; height:26px; margin:0; cursor:pointer;">
+              <input type="checkbox" id="gadget-ispaid-${idx}" ${isPaid ? 'checked' : ''}
+                onchange="window.vespaAdmin && window.vespaAdmin.togglePaidGadgetFields(${idx}, this.checked)"
+                style="opacity:0; width:0; height:0;">
+              <span style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:${isPaid ? '#F59E0B' : '#CBD5E1'}; transition:.3s; border-radius:26px;">
+                <span style="position:absolute; height:20px; width:20px; left:${isPaid ? '24px' : '3px'}; bottom:3px; background-color:white; transition:.3s; border-radius:50%; box-shadow:0 2px 4px rgba(0,0,0,0.2);"></span>
+              </span>
+            </label>
+          </div>
+
+          <div id="gadget-price-wrap-${idx}" style="margin-top:0.6rem; ${isPaid ? '' : 'display:none;'}">
+            <label style="font-size:0.72rem; font-weight:800; color:#B45309; text-transform:uppercase; display:block; margin-bottom:0.25rem;">
+              💰 Prezzo Gadget (€):
+            </label>
+            <div style="display:flex; align-items:center; gap:0.4rem;">
+              <span style="font-weight:900; font-size:1.1rem; color:#B45309;">€</span>
+              <input type="number" id="gadget-price-${idx}" value="${currentPrice}" min="0" step="1"
+                placeholder="Es. 15"
+                style="width:120px; padding:0.4rem 0.65rem; border:1.5px solid #F59E0B; border-radius:6px; font-size:0.95rem; font-weight:800; color:#B45309; box-sizing:border-box; background:#FFF;">
+            </div>
+            <div style="font-size:0.7rem; color:#78350F; margin-top:3px;">
+              Il prezzo verrà sommato all'iscrizione se il cliente sceglie di aggiungerlo.
+            </div>
+          </div>
         </div>
 
         <!-- Sezione Capo di Abbigliamento e Taglie -->
@@ -2797,7 +2848,10 @@ VespaAdminDashboard.prototype.renderGadgetConfig = function() {
           </label>
         </div>
         <!-- Stato badge -->
-        <div style="text-align:right;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:0.78rem; font-weight:800; padding:0.25rem 0.65rem; border-radius:999px; background:${isPaid ? '#FEF3C7' : '#EFF6FF'}; color:${isPaid ? '#B45309' : '#1E40AF'}; border:1px solid ${isPaid ? '#FDE68A' : '#BFDBFE'};">
+            ${isPaid ? `💶 A PAGAMENTO (€ ${currentPrice})` : '🎁 GRATUITO'}
+          </span>
           <span style="font-size:0.75rem; font-weight:800; padding:0.25rem 0.65rem; border-radius:999px; background:${isActive ? '#DCFCE7' : '#FEE2E2'}; color:${isActive ? '#15803D' : '#B91C1C'}; border:1px solid ${isActive ? '#86EFAC' : '#FCA5A5'};">
             ${isActive ? '✅ PRESENTE' : '⛔ NON PREVISTO'}
           </span>
@@ -2813,21 +2867,25 @@ VespaAdminDashboard.prototype.saveGadgetConfig = function() {
     const labelEl      = document.getElementById(`gadget-label-${idx}`);
     const descEl       = document.getElementById(`gadget-desc-${idx}`);
     const toggleEl     = document.getElementById(`gadget-toggle-${idx}`);
+    const isPaidEl     = document.getElementById(`gadget-ispaid-${idx}`);
+    const priceEl      = document.getElementById(`gadget-price-${idx}`);
     const isClothingEl = document.getElementById(`gadget-isclothing-${idx}`);
     const sizesEl      = document.getElementById(`gadget-sizes-${idx}`);
 
     if (labelEl)      g.label  = labelEl.value.trim() || g.label;
     if (descEl)       g.desc   = descEl.value.trim();
     if (toggleEl)     g.active = toggleEl.checked;
+    if (isPaidEl)     g.isPaid = isPaidEl.checked;
+    if (priceEl)      g.price  = Math.max(0, parseInt(priceEl.value, 10) || 0);
     if (isClothingEl) g.isClothing = isClothingEl.checked;
     if (sizesEl)      g.availableSizes = sizesEl.value.trim();
   });
   saveGadgetConfig(config);
   this.renderGadgetConfig();
   if (window.app && typeof window.app.showToast === 'function') {
-    window.app.showToast('✅ Configurazione gadget e taglie salvata!', 'success');
+    window.app.showToast('✅ Configurazione gadget, prezzi e taglie salvata!', 'success');
   } else {
-    alert('✅ Configurazione gadget e taglie salvata!');
+    alert('✅ Configurazione gadget, prezzi e taglie salvata!');
   }
 };
 
