@@ -398,12 +398,12 @@
               </div>
             </div>
             <div style="display:flex; align-items:center; gap:0.75rem;">
-              <span id="participantsListIcon" style="font-size:0.9rem; opacity:0.85; font-weight:800;">▲</span>
+              <span id="participantsListIcon" style="font-size:0.9rem; opacity:0.85; font-weight:800;">▼</span>
             </div>
           </div>
 
           <!-- Body collassabile -->
-          <div id="participantsListBody" style="padding:1.25rem;">
+          <div id="participantsListBody" style="display:none; padding:1.25rem;">
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:1rem; margin-bottom:1.25rem;">
               <div><label for="adminSearchInput">Ricerca Istantanea</label><input type="text" id="adminSearchInput" placeholder="Cerca..."></div>
               <div><label for="adminModeFilter">Filtra per Pacchetto</label><select id="adminModeFilter"><option value="ALL">Tutti i Pacchetti</option><option value="COMPLETA">[C] COMPLETA Sab+Dom</option><option value="FULL_SAB">[SF] FULL Sabato</option><option value="LIGHT_SAB">[SL] LIGHT Sabato</option><option value="FULL_DOM">[DF] FULL Domenica</option><option value="LIGHT_DOM">[DL] LIGHT Domenica</option></select></div>
@@ -426,56 +426,69 @@
     </section>
 
     <!-- ====================================================================
-         SEZIONE CLASSIFICHE RADUNO & PREMIAZIONI (FILTRABILI)
+         SEZIONE CLASSIFICHE RADUNO & PREMIAZIONI (FILTRABILI, COMPATTABILE)
          ==================================================================== -->
     <section id="rankings-section" style="margin-top:2.5rem; margin-bottom:2.5rem;">
-      <div class="card">
-        <div class="card-header" style="flex-wrap:wrap; gap:1rem;">
-          <div>
-            <h2 class="card-title" style="display:flex; align-items:center; gap:0.5rem;">
-              <span>🏆</span> Classifiche Ufficiali Raduno & Premiazioni
-            </h2>
-            <p class="card-subtitle">
+      <div style="border:1.5px solid var(--bg-card-border); border-radius:12px; overflow:hidden; background:#FFF; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+        <!-- Header collassabile -->
+        <div style="background:linear-gradient(90deg, #0f172a 0%, #1e293b 100%); color:#FFF; padding:0.85rem 1.25rem; display:flex; justify-content:space-between; align-items:center; cursor:pointer; gap:1rem;"
+             onclick="(function(){ var b=document.getElementById('rankingsSectionBody'); var ic=document.getElementById('rankingsSectionIcon'); if(b.style.display==='none'){b.style.display='';ic.textContent='▲';}else{b.style.display='none';ic.textContent='▼';} })()">
+          <div style="display:flex; align-items:center; gap:0.75rem;">
+            <span style="font-size:1.2rem;">🏆</span>
+            <div>
+              <div style="font-weight:900; font-size:0.95rem; letter-spacing:0.3px;">Classifiche Ufficiali Raduno &amp; Premiazioni</div>
+              <div style="font-size:0.78rem; opacity:0.85; margin-top:1px;">Vespa d'Epoca più vecchia, provenienza per distanza e Club più numeroso</div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:0.75rem;">
+            <span id="rankingsSectionIcon" style="font-size:0.9rem; opacity:0.85; font-weight:800;">▼</span>
+          </div>
+        </div>
+
+        <!-- Body collassabile -->
+        <div id="rankingsSectionBody" style="display:none; padding:1.25rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; margin-bottom:1.25rem;">
+            <p class="card-subtitle" style="margin:0;">
               Classifiche dinamiche calcolate in tempo reale sulle prenotazioni registrate: Vespa d'Epoca più vecchia, provenienza per distanza (km dalla città di provenienza del partecipante) e Club più numeroso.
             </p>
+
+            <!-- Filtro per Vespa Club -->
+            <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+              <label for="rankingClubFilter" style="margin:0; font-weight:800; font-size:0.85rem; color:var(--vespa-blue-dark); white-space:nowrap;">
+                🏢 Filtra per Vespa Club:
+              </label>
+              <select id="rankingClubFilter" onchange="window.vespaAdmin.filterRankingsByClub(this.value)" style="min-width:220px; font-weight:700;">
+                <option value="ALL">🌟 Tutti i Vespa Club</option>
+                <!-- Popolato dinamicamente da admin.js -->
+              </select>
+            </div>
           </div>
 
-          <!-- Filtro per Vespa Club -->
-          <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
-            <label for="rankingClubFilter" style="margin:0; font-weight:800; font-size:0.85rem; color:var(--vespa-blue-dark); white-space:nowrap;">
-              🏢 Filtra per Vespa Club:
-            </label>
-            <select id="rankingClubFilter" onchange="window.vespaAdmin.filterRankingsByClub(this.value)" style="min-width:220px; font-weight:700;">
-              <option value="ALL">🌟 Tutti i Vespa Club</option>
-              <!-- Popolato dinamicamente da admin.js -->
-            </select>
+          <!-- Ranking Tabs -->
+          <div class="ranking-tabs">
+            <button class="ranking-tab-btn active" id="tabBtnOldest" onclick="window.vespaAdmin.switchRankingTab('oldest')">
+              🛵 Vespa più Vecchia
+            </button>
+            <button class="ranking-tab-btn" id="tabBtnDistance" onclick="window.vespaAdmin.switchRankingTab('distance')">
+              📍 Distanza da Asti (Città di Provenienza)
+            </button>
+            <button class="ranking-tab-btn" id="tabBtnClub" onclick="window.vespaAdmin.switchRankingTab('club')">
+              👥 Classifica Vespa Club
+            </button>
           </div>
-        </div>
 
-        <!-- Ranking Tabs -->
-        <div class="ranking-tabs">
-          <button class="ranking-tab-btn active" id="tabBtnOldest" onclick="window.vespaAdmin.switchRankingTab('oldest')">
-            🛵 Vespa più Vecchia
-          </button>
-          <button class="ranking-tab-btn" id="tabBtnDistance" onclick="window.vespaAdmin.switchRankingTab('distance')">
-            📍 Distanza da Asti (Città di Provenienza)
-          </button>
-          <button class="ranking-tab-btn" id="tabBtnClub" onclick="window.vespaAdmin.switchRankingTab('club')">
-            👥 Classifica Vespa Club
-          </button>
-        </div>
+          <!-- Dynamic Podium Area (1°, 2°, 3° Posto) -->
+          <div id="podiumContainer" style="margin-bottom:1.75rem;">
+            <!-- Generato via JavaScript -->
+          </div>
 
-        <!-- Dynamic Podium Area (1°, 2°, 3° Posto) -->
-        <div id="podiumContainer" style="margin-bottom:1.75rem;">
-          <!-- Generato via JavaScript -->
-        </div>
-
-        <!-- Ranking Table -->
-        <div class="table-responsive">
-          <table class="data-table" id="rankingTable">
-            <thead id="rankingTableHead"></thead>
-            <tbody id="rankingTableBody"></tbody>
-          </table>
+          <!-- Ranking Table -->
+          <div class="table-responsive">
+            <table class="data-table" id="rankingTable">
+              <thead id="rankingTableHead"></thead>
+              <tbody id="rankingTableBody"></tbody>
+            </table>
+          </div>
         </div>
 
       </div>
