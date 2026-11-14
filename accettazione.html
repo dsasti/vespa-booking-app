@@ -829,7 +829,7 @@
 
           select.onchange = function() {
             if (select.value) {
-              self.lookupParticipant(select.value);
+              self.lookupParticipant(select.value, true);
             }
           };
         } catch(e) {
