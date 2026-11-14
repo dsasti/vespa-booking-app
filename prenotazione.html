@@ -410,6 +410,41 @@
               <div id="packageBadgePreview" style="margin-top:0.75rem;"></div>
             </div>
 
+            <!-- SELEZIONE GADGET DELL'EVENTO (GRATUITI E OPZIONALI A PAGAMENTO) -->
+            <div class="form-group full-width" id="eventGadgetsSection" style="display:none;">
+              <label style="display:flex; align-items:center; gap:0.4rem; font-size:1.05rem; font-weight:800; color:var(--vespa-blue-dark);">
+                🎁 Gadget Ufficiali dell'Evento
+              </label>
+              <p style="font-size:0.85rem; color:var(--text-muted); margin:0.15rem 0 0.75rem 0;">
+                Di seguito sono elencati i gadget previsti per il raduno. Puoi scegliere se acquistare o aggiungere gadget a pagamento disponibili.
+              </p>
+              
+              <div id="eventGadgetsList" style="display:flex; flex-direction:column; gap:0.75rem;">
+                <!-- Popolato dinamicamente da JS con tutti i gadget attivi -->
+              </div>
+            </div>
+
+            <!-- SEZIONE RIEPILOGO TOTALE ISCRIZIONE CON DETTAGLIO GADGET A PAGAMENTO -->
+            <div class="form-group full-width" id="bookingPriceSummaryBox" style="margin-top:0.25rem;">
+              <div style="background:linear-gradient(135deg,#F0FDF4 0%,#DCFCE7 100%); border:2px solid #86EFAC; border-radius:12px; padding:1.1rem 1.35rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; box-shadow:0 3px 8px rgba(22,163,74,0.08);">
+                <div>
+                  <div style="font-size:0.78rem; font-weight:800; color:#15803D; text-transform:uppercase; letter-spacing:0.5px;">
+                    💳 Totale Complessivo Iscrizione &amp; Quota
+                  </div>
+                  <div id="priceBreakdownText" style="font-size:0.88rem; color:#166534; margin-top:0.35rem; line-height:1.45;">
+                    Quota Raduno: <strong>€ <span id="summaryPricePackage">55</span></strong>
+                    <span id="summaryGadgetsBreakdownWrap" style="display:none;"> • Gadget Aggiuntivi: <strong>+€ <span id="summaryPriceGadgets">0</span></strong></span>
+                  </div>
+                </div>
+                <div style="text-align:right;">
+                  <span style="font-size:0.8rem; font-weight:700; color:#15803D; display:block;">Importo da Versare</span>
+                  <div style="font-size:1.6rem; font-weight:900; color:#14532D; line-height:1.1;">
+                    € <span id="summaryPriceTotal">55</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- SEZIONE COORDINATE IBAN E PAGAMENTO BONIFICO -->
             <div class="form-group full-width">
               <div class="payment-box" id="paymentInfoBox" style="background:#EFF6FF; border:2px solid var(--vespa-blue); padding:1.5rem; border-radius:12px; display:flex; flex-direction:column; align-items:flex-start;">
@@ -611,6 +646,10 @@
               <span class="lbl">Pacchetto Raduno & Quota:</span>
               <span class="val" id="ticketModalita" style="font-size:0.95rem; font-weight:800;">-</span>
             </div>
+            <div class="ticket-info-item" id="ticketGadgetsItem" style="grid-column: 1 / -1; display:none;">
+              <span class="lbl">Gadget Aggiuntivi Richiesti:</span>
+              <span class="val" id="ticketGadgetsList" style="font-size:0.9rem; font-weight:700; color:#15803D;">-</span>
+            </div>
           </div>
 
           <!-- ACTION BUTTONS -->
@@ -686,6 +725,9 @@
       if (typeof sel.onchange === 'function') sel.onchange();
     }
     syncPackageCardsFromSelect();
+    if (typeof window.updateBookingPriceCalculation === 'function') {
+      window.updateBookingPriceCalculation();
+    }
   };
 
   window.syncPackageCardsFromSelect = function() {
@@ -815,6 +857,9 @@
       }
 
       renderPackageBadgePreview();
+      if (typeof window.updateBookingPriceCalculation === 'function') {
+        window.updateBookingPriceCalculation();
+      }
     }
 
     // Esegui subito e aggiorna se l'organizzatore cambia config in un'altra scheda o dopo sync dal DB Cloud
@@ -1007,16 +1052,70 @@
   <script>
   /**
    * Hydration Configurazione Gadget & Abbigliamento:
-   * Controlla se nei gadget configurati dall'organizzatore è presente un capo di abbigliamento attivo.
-   * Se presente: attiva la scheda taglie con le opzioni configurate (es. S, M, L...).
-   * Se NON presente: disattiva/nasconde la scheda taglie dalla registrazione.
+   * 1. Mostra tutti i gadget attivi in sequenza nella sezione #eventGadgetsSection.
+   * 2. Se un gadget è gratuito: mostra che è incluso con icona verde.
+   * 3. Se un gadget è a pagamento: inserisce una casella checkbox / switch per permettere
+   *    al cliente di selezionarlo opzionalmente, visualizzando il prezzo.
+   * 4. Se è presente un capo di abbigliamento, aggiorna e gestisce il selettore taglie.
+   * 5. Ricalcola dinamicamente il totale dell'iscrizione specificando la quota raduno e il totale dei gadget a pagamento.
    */
-  (function hydrateClothingSizes() {
-    function applyClothingSizesConfig() {
+  window.updateBookingPriceCalculation = function() {
+    const sel = document.getElementById('modalitaPartecipazione');
+    const pkgVal = sel ? sel.value : '';
+    let packagePrice = 55;
+    if (window.VespaPkg && pkgVal) {
+      packagePrice = window.VespaPkg.getPriceForRegistration(pkgVal);
+    } else {
+      const match = (pkgVal || '').match(/€\s*(\d+)/);
+      if (match) packagePrice = parseInt(match[1], 10);
+    }
+
+    // Calcola il totale dei gadget a pagamento selezionati dal cliente
+    let gadgetsExtraPrice = 0;
+    const selectedPaidGadgets = [];
+    const checkboxes = document.querySelectorAll('.gadget-paid-checkbox');
+    checkboxes.forEach(cb => {
+      if (cb.checked) {
+        const p = parseInt(cb.getAttribute('data-price'), 10) || 0;
+        const name = cb.getAttribute('data-name') || 'Gadget';
+        gadgetsExtraPrice += p;
+        selectedPaidGadgets.push({ id: cb.value, name, price: p });
+      }
+    });
+
+    const totalPrice = packagePrice + gadgetsExtraPrice;
+
+    // Aggiorna l'interfaccia riassuntiva dei prezzi
+    const pkgEl = document.getElementById('summaryPricePackage');
+    const gadgetsWrap = document.getElementById('summaryGadgetsBreakdownWrap');
+    const gadgetsEl = document.getElementById('summaryPriceGadgets');
+    const totalEl = document.getElementById('summaryPriceTotal');
+
+    if (pkgEl) pkgEl.textContent = packagePrice;
+    if (gadgetsEl) gadgetsEl.textContent = gadgetsExtraPrice;
+    if (totalEl) totalEl.textContent = totalPrice;
+
+    if (gadgetsWrap) {
+      if (gadgetsExtraPrice > 0) {
+        gadgetsWrap.style.display = 'inline';
+      } else {
+        gadgetsWrap.style.display = 'none';
+      }
+    }
+
+    return { packagePrice, gadgetsExtraPrice, totalPrice, selectedPaidGadgets };
+  };
+
+  (function hydrateClothingAndGadgets() {
+    function applyGadgetsConfig() {
       try {
         const raw = localStorage.getItem('vespa_gadget_config');
         const defaultGadgets = [
-          { id: 'gadget_tshirt', label: '👕 T-Shirt / Abbigliamento', active: true, isClothing: true, availableSizes: 'S, M, L, XL, XXL, 3XL' }
+          { id: 'gadget_tshirt', label: '👕 T-Shirt / Abbigliamento', active: true, isClothing: true, availableSizes: 'S, M, L, XL, XXL, 3XL', isPaid: false, price: 0 },
+          { id: 'gadget_borsa',  label: '👜 Borsa / Zaino Evento',    desc: 'Borsa ufficiale dell\'evento (se prevista)', active: false, isClothing: false, availableSizes: '', isPaid: false, price: 0 },
+          { id: 'gadget_patch',  label: '🏅 Patch / Toppa',           desc: 'Patch o toppa personalizzata con il logo del raduno', active: false, isClothing: false, availableSizes: '', isPaid: false, price: 0 },
+          { id: 'gadget_spilla', label: '📌 Spilla / Pin',            desc: 'Spilla o pin commemorativo dell\'evento', active: false, isClothing: false, availableSizes: '', isPaid: false, price: 0 },
+          { id: 'gadget_targa',  label: '🪧 Targa / Diploma',         desc: 'Targa o diploma di partecipazione', active: false, isClothing: false, availableSizes: '', isPaid: false, price: 0 }
         ];
         let gadgets = defaultGadgets;
         if (raw) {
@@ -1025,31 +1124,80 @@
           } catch (e) {}
         }
 
-        // Cerca il primo gadget attivo contrassegnato come capo di abbigliamento
-        const clothing = gadgets.find(g => g.active !== false && g.isClothing === true);
+        const activeGadgets = gadgets.filter(g => g.active !== false);
+
+        // 1. Popola la sezione sequenziale dei Gadget Attivi
+        const sectionEl = document.getElementById('eventGadgetsSection');
+        const listEl = document.getElementById('eventGadgetsList');
+        if (sectionEl && listEl) {
+          if (activeGadgets.length > 0) {
+            sectionEl.style.display = 'block';
+            listEl.innerHTML = activeGadgets.map((g, idx) => {
+              const isPaid = g.isPaid === true && (parseInt(g.price, 10) > 0);
+              const price = parseInt(g.price, 10) || 0;
+              const safeName = g.label.replace(/"/g, '&quot;');
+              const desc = g.desc ? `<div style="font-size:0.78rem; color:#64748B; margin-top:2px;">${g.desc}</div>` : '';
+
+              if (isPaid) {
+                return `
+                  <div style="background:#FFFBEB; border:1.5px solid #FCD34D; border-radius:10px; padding:0.75rem 1rem; display:flex; justify-content:space-between; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+                    <div style="display:flex; align-items:center; gap:0.6rem; min-width:200px;">
+                      <input type="checkbox" id="gadget_opt_${g.id || idx}" class="gadget-paid-checkbox" value="${g.id || idx}" data-name="${safeName}" data-price="${price}" onchange="window.updateBookingPriceCalculation()" style="width:18px; height:18px; cursor:pointer; accent-color:#D97706;">
+                      <label for="gadget_opt_${g.id || idx}" style="cursor:pointer; margin:0;">
+                        <span style="font-weight:800; font-size:0.95rem; color:#92400E;">${g.label}</span>
+                        ${desc}
+                      </label>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:0.6rem;">
+                      <span style="background:#FEF3C7; color:#B45309; border:1px solid #FDE68A; padding:0.25rem 0.65rem; border-radius:8px; font-weight:900; font-size:0.95rem;">
+                        +€ ${price}
+                      </span>
+                      <span style="font-size:0.75rem; font-weight:700; color:#78350F; text-transform:uppercase;">
+                        Opzionale
+                      </span>
+                    </div>
+                  </div>
+                `;
+              } else {
+                return `
+                  <div style="background:#F0FDF4; border:1.5px solid #86EFAC; border-radius:10px; padding:0.75rem 1rem; display:flex; justify-content:space-between; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+                    <div>
+                      <span style="font-weight:800; font-size:0.95rem; color:#166534;">${g.label}</span>
+                      ${desc}
+                    </div>
+                    <div>
+                      <span style="background:#DCFCE7; color:#15803D; border:1px solid #86EFAC; padding:0.25rem 0.65rem; border-radius:8px; font-weight:800; font-size:0.8rem;">
+                        ✔ INCLUSO (Gratuito)
+                      </span>
+                    </div>
+                  </div>
+                `;
+              }
+            }).join('');
+          } else {
+            sectionEl.style.display = 'none';
+          }
+        }
+
+        // 2. Gestione Taglie Abbigliamento
+        const clothing = activeGadgets.find(g => g.isClothing === true);
         const groupEl = document.getElementById('tagliaTshirtGroup');
         const selectEl = document.getElementById('tagliaTshirt');
         const ticketItem = document.getElementById('ticketTshirtItem');
         const labelEl = document.getElementById('tagliaTshirtLabel');
 
         if (clothing) {
-          // Attiva il campo taglie
           if (groupEl) groupEl.style.display = '';
           if (selectEl) {
             selectEl.disabled = false;
             selectEl.required = true;
-            // Popola con le taglie configurate
             const rawSizes = (clothing.availableSizes && clothing.availableSizes.trim())
               ? clothing.availableSizes
               : 'S, M, L, XL, XXL, 3XL';
             const sizesArr = rawSizes.split(',').map(s => s.trim()).filter(Boolean);
             const currentVal = selectEl.value;
 
-            selectEl.innerHTML = sizesArr.map(sz => {
-              return `<option value="${sz}">${sz}</option>`;
-            }).join('');
-
-            // Mantieni il valore precedente se ancora presente, altrimenti seleziona il primo o 'L'
+            selectEl.innerHTML = sizesArr.map(sz => `<option value="${sz}">${sz}</option>`).join('');
             if (sizesArr.includes(currentVal)) {
               selectEl.value = currentVal;
             } else if (sizesArr.includes('L')) {
@@ -1063,7 +1211,6 @@
             labelEl.innerHTML = `Taglia ${clothing.label.replace(/^[^\w\s]+/, '').trim()} <span class="req">*</span>`;
           }
         } else {
-          // Disattiva il campo taglie se non è presente alcun capo di abbigliamento
           if (groupEl) groupEl.style.display = 'none';
           if (selectEl) {
             selectEl.disabled = true;
@@ -1072,26 +1219,28 @@
           }
           if (ticketItem) ticketItem.style.display = 'none';
         }
+
+        window.updateBookingPriceCalculation();
       } catch (e) {
-        console.warn('[ClothingSizesHydration] Errore:', e);
+        console.warn('[GadgetsHydration] Errore:', e);
       }
     }
 
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', applyClothingSizesConfig);
+      document.addEventListener('DOMContentLoaded', applyGadgetsConfig);
     } else {
-      applyClothingSizesConfig();
+      applyGadgetsConfig();
     }
 
     window.addEventListener('storage', function(e) {
       if (e.key === 'vespa_gadget_config' || e.key === 'vespa_gadget_config_pulse') {
-        applyClothingSizesConfig();
+        applyGadgetsConfig();
       }
     });
     if (window.vespaDB && typeof window.vespaDB.onChange === 'function') {
       window.vespaDB.onChange(function(data) {
         if (data && (data.type === 'CONFIG_UPDATED' || data.action === 'REMOTE_SYNC')) {
-          applyClothingSizesConfig();
+          applyGadgetsConfig();
         }
       });
     }
