@@ -7,6 +7,7 @@ const path = require('path');
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = __dirname;
 const DATA_FILE = path.join(__dirname, 'dati_prenotazioni.json');
+const CONFIG_FILE = path.join(__dirname, 'config_app.json');
 const BACKUPS_DIR = path.join(__dirname, 'backups');
 if (!fs.existsSync(BACKUPS_DIR)) fs.mkdirSync(BACKUPS_DIR, { recursive: true });
 
@@ -18,6 +19,7 @@ function notifyDataChange() {
 const MONGO_URI = process.env.MONGO_URI;
 let mongoose = null;
 let RegistrationModel = null;
+let AppConfigModel = null;
 let isMongoConnected = false;
 
 // Tentativo connessione a MongoDB Atlas se MONGO_URI è definita
@@ -30,6 +32,13 @@ if (MONGO_URI) {
       updatedAt: { type: Date, default: Date.now }
     });
     RegistrationModel = mongoose.models.Registration || mongoose.model('Registration', RegistrationSchema);
+
+    const AppConfigSchema = new mongoose.Schema({
+      key: { type: String, required: true, unique: true },
+      data: { type: Object, required: true },
+      updatedAt: { type: Date, default: Date.now }
+    });
+    AppConfigModel = mongoose.models.AppConfig || mongoose.model('AppConfig', AppConfigSchema);
 
     mongoose.connect(MONGO_URI)
       .then(() => {
@@ -140,6 +149,99 @@ async function wipeDatabaseAsync() {
   saveDataSync([]);
 }
 
+function readConfigSync() {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+    }
+  } catch (e) {
+    console.error("Errore lettura sync file configurazione:", e);
+  }
+  return {};
+}
+
+function saveConfigSync(config) {
+  try {
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf8');
+  } catch (e) {
+    console.error("Errore scrittura file configurazione:", e);
+  }
+}
+
+async function readConfigAsync() {
+  if (isMongoConnected && AppConfigModel) {
+    try {
+      const docs = await AppConfigModel.find({});
+      const configMap = {};
+      docs.forEach(doc => {
+        if (doc && doc.key) {
+          configMap[doc.key] = doc.data;
+        }
+      });
+      // Se abbiamo config da Mongo, assicuriamoci di averle salvate anche localmente come cache/fallback
+      if (Object.keys(configMap).length > 0) {
+        try {
+          const local = readConfigSync();
+          const merged = { ...local, ...configMap };
+          saveConfigSync(merged);
+          return merged;
+        } catch(e) {
+          return configMap;
+        }
+      }
+    } catch (e) {
+      console.error("Errore lettura configurazione da MongoDB:", e.message);
+    }
+  }
+  return readConfigSync();
+}
+
+async function saveConfigKeyAsync(key, data) {
+  notifyDataChange();
+  if (isMongoConnected && AppConfigModel) {
+    try {
+      await AppConfigModel.findOneAndUpdate(
+        { key: key },
+        { key: key, data: data, updatedAt: new Date() },
+        { upsert: true, new: true }
+      );
+    } catch (e) {
+      console.error(`Errore salvataggio MongoDB configurazione [${key}]:`, e.message);
+    }
+  }
+  try {
+    const current = readConfigSync();
+    current[key] = data;
+    saveConfigSync(current);
+  } catch (e) {
+    console.error(`Errore salvataggio locale configurazione [${key}]:`, e);
+  }
+}
+
+async function saveAllConfigAsync(allConfigs) {
+  notifyDataChange();
+  if (isMongoConnected && AppConfigModel && typeof allConfigs === 'object' && allConfigs !== null) {
+    for (const [k, v] of Object.entries(allConfigs)) {
+      try {
+        await AppConfigModel.findOneAndUpdate(
+          { key: k },
+          { key: k, data: v, updatedAt: new Date() },
+          { upsert: true, new: true }
+        );
+      } catch (e) {
+        console.error(`Errore batch MongoDB configurazione [${k}]:`, e.message);
+      }
+    }
+  }
+  try {
+    const current = readConfigSync();
+    const updated = { ...current, ...allConfigs };
+    saveConfigSync(updated);
+  } catch (e) {
+    console.error("Errore salvataggio locale tutte le config:", e);
+  }
+}
+
 function readDataSync() {
   try {
     if (fs.existsSync(DATA_FILE)) {
@@ -194,6 +296,47 @@ const server = http.createServer(async (req, res) => {
       timestamp: Date.now()
     }));
     return;
+  }
+
+  // API Configurazione App (Permanenza Database Cloud & Locale)
+  if (pathname === '/api/config') {
+    if (req.method === 'GET') {
+      try {
+        const config = await readConfigAsync();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, config }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
+    }
+    if (req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk.toString(); });
+      req.on('end', async () => {
+        try {
+          const payload = JSON.parse(body);
+          if (payload.key && payload.data !== undefined) {
+            await saveConfigKeyAsync(payload.key, payload.data);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, key: payload.key }));
+          } else if (payload.config && typeof payload.config === 'object') {
+            await saveAllConfigAsync(payload.config);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, count: Object.keys(payload.config).length }));
+          } else {
+            await saveAllConfigAsync(payload);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true }));
+          }
+        } catch (err) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+      });
+      return;
+    }
   }
 
   // API REST Endpoints

@@ -167,6 +167,9 @@ function savePackagesConfig(config) {
     localStorage.setItem(PKG_CONFIG_KEY, JSON.stringify(config));
     // Notifica le altre schede (es. prenotazione aperta)
     localStorage.setItem('vespa_packages_config_pulse', Date.now().toString());
+    if (window.vespaDB && typeof window.vespaDB.saveAppConfig === 'function') {
+      window.vespaDB.saveAppConfig(PKG_CONFIG_KEY, config);
+    }
   } catch (e) {}
 }
 
@@ -472,25 +475,31 @@ window.vespaPackagesUI = {
   },
 
   saveConfig() {
+    const existingConfig = loadPackagesConfig();
     const config = [];
     VESPA_PACKAGES_DEFAULT.forEach(pkg => {
+      const existing = existingConfig.find(c => c.id === pkg.id);
       const toggle   = document.getElementById(`pkg-toggle-${pkg.id}`);
       const priceInput = document.getElementById(`pkg-price-${pkg.id}`);
       const labelInput = document.getElementById(`pkg-label-${pkg.id}`);
-      const active = toggle ? toggle.checked : true;
-      const price  = priceInput ? (parseInt(priceInput.value, 10) || pkg.defaultPrice) : pkg.defaultPrice;
-      const customLabel = labelInput ? (labelInput.value.trim() || null) : null;
-      // Leggi servizi dalle checkbox
-      const customServices = Object.keys(SERVICE_DB_FIELDS).filter(sKey => {
-        const cb = document.getElementById(`pkg-svc-${pkg.id}-${sKey}`);
-        return cb ? cb.checked : pkg.services.includes(sKey);
-      });
-      const servicesChanged = JSON.stringify(customServices.sort()) !== JSON.stringify([...pkg.services].sort());
+      const active = toggle ? toggle.checked : (existing ? existing.active : true);
+      const price  = priceInput ? (parseInt(priceInput.value, 10) || pkg.defaultPrice) : (existing && existing.price != null ? existing.price : pkg.defaultPrice);
+      const customLabel = labelInput ? (labelInput.value.trim() || null) : (existing ? existing.customLabel : null);
+      // Leggi servizi dalle checkbox se presenti nel DOM
+      const hasAnyCb = Object.keys(SERVICE_DB_FIELDS).some(sKey => document.getElementById(`pkg-svc-${pkg.id}-${sKey}`));
+      let customServices = existing ? existing.customServices : null;
+      if (hasAnyCb) {
+        customServices = Object.keys(SERVICE_DB_FIELDS).filter(sKey => {
+          const cb = document.getElementById(`pkg-svc-${pkg.id}-${sKey}`);
+          return cb ? cb.checked : pkg.services.includes(sKey);
+        });
+      }
+      const servicesChanged = customServices ? (JSON.stringify(customServices.sort()) !== JSON.stringify([...pkg.services].sort())) : false;
       config.push({
         id: pkg.id,
         active,
         price,
-        customLabel: customLabel !== pkg.label ? customLabel : null,
+        customLabel: (customLabel && customLabel !== pkg.label) ? customLabel : null,
         customServices: servicesChanged ? customServices : null
       });
     });
