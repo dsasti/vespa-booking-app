@@ -2219,20 +2219,31 @@ VespaAdminDashboard.prototype.loadPaymentConfig = function() {
 
 VespaAdminDashboard.prototype.savePaymentConfig = function() {
   try {
-    const get = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+    const rawPrev = localStorage.getItem('vespa_payment_config');
+    const existing = rawPrev ? JSON.parse(rawPrev) : {};
+
+    const get = (id, fallback) => {
+      const el = document.getElementById(id);
+      return el ? el.value.trim() : (fallback !== undefined ? fallback : '');
+    };
     const editor = document.getElementById('paymentConfigRichEditor');
-    const richExtra = editor ? editor.innerHTML : '';
+    const richExtra = editor ? editor.innerHTML : (existing.richExtra || '');
 
     const cfg = {
-      intestatario: get('paymentConfigIntestatario'),
-      banca:        get('paymentConfigBanca'),
-      iban:         get('paymentConfigIban'),
-      causale:      get('paymentConfigCausale'),
+      intestatario: get('paymentConfigIntestatario', existing.intestatario),
+      banca:        get('paymentConfigBanca', existing.banca),
+      iban:         get('paymentConfigIban', existing.iban),
+      causale:      get('paymentConfigCausale', existing.causale),
       richExtra:    richExtra
     };
 
     localStorage.setItem('vespa_payment_config', JSON.stringify(cfg));
     localStorage.setItem('vespa_payment_config_pulse', Date.now().toString());
+
+    // Sincronizzazione persistente sul backend / Cloud DB
+    if (window.vespaDB && typeof window.vespaDB.saveAppConfig === 'function') {
+      window.vespaDB.saveAppConfig('vespa_payment_config', cfg);
+    }
 
     if (window.app && typeof window.app.showToast === 'function') {
       window.app.showToast('✅ Configurazione pagamento salvata! Visibile subito nella scheda prenotazione.', 'success');
@@ -2292,9 +2303,36 @@ const _originalAdminInit = VespaAdminDashboard.prototype.init;
 VespaAdminDashboard.prototype.init = async function() {
   await _originalAdminInit.call(this);
   // Precarica subito tutte le configurazioni nei rispettivi form HTML
-  this.loadEventConfig();
-  this.loadPaymentConfig();
-  this.renderGadgetConfig();
+  this.loadAllConfigsToUI();
+
+  // Se vespaDB aggiorna o scarica dal Cloud MongoDB la configurazione, ricarica i form UI
+  if (window.vespaDB && typeof window.vespaDB.onChange === 'function') {
+    window.vespaDB.onChange((data) => {
+      if (data && (data.type === 'CONFIG_UPDATED' || data.action === 'REMOTE_SYNC')) {
+        this.loadAllConfigsToUI();
+      }
+    });
+  }
+
+  // Ascolta storage events se le config cambiano da un'altra scheda
+  window.addEventListener('storage', (e) => {
+    if (e.key && e.key.startsWith('vespa_') && (e.key.includes('_config') || e.key.includes('_pulse'))) {
+      this.loadAllConfigsToUI();
+    }
+  });
+};
+
+VespaAdminDashboard.prototype.loadAllConfigsToUI = function() {
+  try {
+    this.loadEventConfig();
+    this.loadPaymentConfig();
+    this.renderGadgetConfig();
+    if (window.vespaPackagesUI && typeof window.vespaPackagesUI.render === 'function') {
+      window.vespaPackagesUI.render();
+    }
+  } catch (e) {
+    console.warn('[AdminDashboard] Errore caricamento configurazioni in UI:', e);
+  }
 };
 
 // ============================================================
@@ -2523,11 +2561,17 @@ VespaAdminDashboard.prototype.updateEventPreview = function() {
 
 VespaAdminDashboard.prototype.saveEventConfig = function() {
   try {
-    const get = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
-    const opacityInput = document.getElementById('eventConfigBgOpacity');
-    const opacityNum = opacityInput ? parseInt(opacityInput.value, 10) : 15;
+    const rawPrev = localStorage.getItem(VESPA_EVENT_CONFIG_KEY);
+    const existing = rawPrev ? JSON.parse(rawPrev) : {};
 
-    // Raccoglie i giorni modificati
+    const get = (id, fallback) => {
+      const el = document.getElementById(id);
+      return el ? el.value.trim() : (fallback !== undefined ? fallback : '');
+    };
+    const opacityInput = document.getElementById('eventConfigBgOpacity');
+    const opacityNum = opacityInput ? parseInt(opacityInput.value, 10) : (existing.bgOpacity !== undefined ? existing.bgOpacity : 15);
+
+    // Raccoglie i giorni modificati se gli input sono presenti
     if (Array.isArray(this._eventDays)) {
       this._eventDays.forEach((d, idx) => {
         const nameEl = document.getElementById(`eventDayName_${idx}`);
@@ -2537,24 +2581,30 @@ VespaAdminDashboard.prototype.saveEventConfig = function() {
       });
     }
 
-    const firstDay = this._eventDays && this._eventDays[0] ? this._eventDays[0].date : get('eventConfigDataSabato');
-    const secondDay = this._eventDays && this._eventDays[1] ? this._eventDays[1].date : get('eventConfigDataDomenica');
+    const firstDay = this._eventDays && this._eventDays[0] ? this._eventDays[0].date : get('eventConfigDataSabato', existing.dataSabato);
+    const secondDay = this._eventDays && this._eventDays[1] ? this._eventDays[1].date : get('eventConfigDataDomenica', existing.dataDomenica);
 
     const cfg = {
-      nomeBreve:      get('eventConfigNomeBreve'),
-      organizzazione: get('eventConfigOrganizzazione'),
-      descrizione:    get('eventConfigDescrizione'),
+      nomeBreve:      get('eventConfigNomeBreve', existing.nomeBreve),
+      organizzazione: get('eventConfigOrganizzazione', existing.organizzazione),
+      descrizione:    get('eventConfigDescrizione', existing.descrizione),
       dataSabato:     firstDay,
       dataDomenica:   secondDay,
-      giorni:         this._eventDays || DEFAULT_EVENT_DAYS,
-      luogo:          get('eventConfigLuogo'),
-      logoUrl:        this._currentLogoBase64 || null,
-      bgImageUrl:     this._currentBgBase64 || null,
+      giorni:         this._eventDays || existing.giorni || DEFAULT_EVENT_DAYS,
+      luogo:          get('eventConfigLuogo', existing.luogo),
+      logoUrl:        this._currentLogoBase64 !== undefined ? this._currentLogoBase64 : (existing.logoUrl || null),
+      bgImageUrl:     this._currentBgBase64 !== undefined ? this._currentBgBase64 : (existing.bgImageUrl || null),
       bgOpacity:      opacityNum
     };
     localStorage.setItem(VESPA_EVENT_CONFIG_KEY, JSON.stringify(cfg));
     // Notifica altre schede
     localStorage.setItem('vespa_event_config_pulse', Date.now().toString());
+
+    // Sincronizzazione persistente sul backend / Cloud DB
+    if (window.vespaDB && typeof window.vespaDB.saveAppConfig === 'function') {
+      window.vespaDB.saveAppConfig(VESPA_EVENT_CONFIG_KEY, cfg);
+    }
+
     if (window.app && typeof window.app.showToast === 'function') {
       window.app.showToast('✅ Configurazione evento salvata! Giorni, logo, testi e sfondo aggiornati in tutte le pagine.', 'success');
     } else {
@@ -2612,6 +2662,9 @@ function saveGadgetConfig(config) {
   try {
     localStorage.setItem(VESPA_GADGET_CONFIG_KEY, JSON.stringify(config));
     localStorage.setItem('vespa_gadget_config_pulse', Date.now().toString());
+    if (window.vespaDB && typeof window.vespaDB.saveAppConfig === 'function') {
+      window.vespaDB.saveAppConfig(VESPA_GADGET_CONFIG_KEY, config);
+    }
   } catch(e) {}
 }
 
@@ -2744,6 +2797,7 @@ VespaAdminDashboard.prototype.renderGadgetConfig = function() {
 
 VespaAdminDashboard.prototype.saveGadgetConfig = function() {
   const config = loadGadgetConfig();
+  // Se gli elementi DOM sono renderizzati, aggiorna i valori. Altrimenti mantieni la configurazione esistente
   config.forEach((g, idx) => {
     const labelEl      = document.getElementById(`gadget-label-${idx}`);
     const descEl       = document.getElementById(`gadget-desc-${idx}`);

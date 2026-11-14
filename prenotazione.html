@@ -619,7 +619,7 @@
       }).join('');
       renderPackageBadgePreview();
     }
-    // Esegui subito e aggiorna se l'organizzatore cambia config in un'altra scheda
+    // Esegui subito e aggiorna se l'organizzatore cambia config in un'altra scheda o dopo sync dal DB Cloud
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', doPopulate);
     } else {
@@ -630,6 +630,13 @@
         doPopulate();
       }
     });
+    if (window.vespaDB && typeof window.vespaDB.onChange === 'function') {
+      window.vespaDB.onChange(function(data) {
+        if (data && (data.type === 'CONFIG_UPDATED' || data.action === 'REMOTE_SYNC')) {
+          doPopulate();
+        }
+      });
+    }
   })();
   </script>
   <script>
@@ -681,10 +688,17 @@
       applyPaymentConfig();
     }
 
-    // Aggiorna in tempo reale se l'organizzatore cambia config in un'altra scheda
+    // Aggiorna in tempo reale se l'organizzatore cambia config in un'altra scheda o sync cloud
     window.addEventListener('storage', function(e) {
       if (e.key === 'vespa_payment_config' || e.key === 'vespa_payment_config_pulse') applyPaymentConfig();
     });
+    if (window.vespaDB && typeof window.vespaDB.onChange === 'function') {
+      window.vespaDB.onChange(function(data) {
+        if (data && (data.type === 'CONFIG_UPDATED' || data.action === 'REMOTE_SYNC')) {
+          applyPaymentConfig();
+        }
+      });
+    }
   })();
   </script>
   <script>
@@ -777,12 +791,19 @@
       applyEventConfig();
     }
 
-    // Aggiornamento reattivo in tempo reale via storage event
+    // Aggiornamento reattivo in tempo reale via storage event o sync cloud
     window.addEventListener('storage', function(e) {
       if (e.key === 'vespa_event_config' || e.key === 'vespa_event_config_pulse') {
         applyEventConfig();
       }
     });
+    if (window.vespaDB && typeof window.vespaDB.onChange === 'function') {
+      window.vespaDB.onChange(function(data) {
+        if (data && (data.type === 'CONFIG_UPDATED' || data.action === 'REMOTE_SYNC')) {
+          applyEventConfig();
+        }
+      });
+    }
   })();
   </script>
   <script>
@@ -869,6 +890,13 @@
         applyClothingSizesConfig();
       }
     });
+    if (window.vespaDB && typeof window.vespaDB.onChange === 'function') {
+      window.vespaDB.onChange(function(data) {
+        if (data && (data.type === 'CONFIG_UPDATED' || data.action === 'REMOTE_SYNC')) {
+          applyClothingSizesConfig();
+        }
+      });
+    }
   })();
   </script>
   <script>

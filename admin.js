@@ -2303,9 +2303,36 @@ const _originalAdminInit = VespaAdminDashboard.prototype.init;
 VespaAdminDashboard.prototype.init = async function() {
   await _originalAdminInit.call(this);
   // Precarica subito tutte le configurazioni nei rispettivi form HTML
-  this.loadEventConfig();
-  this.loadPaymentConfig();
-  this.renderGadgetConfig();
+  this.loadAllConfigsToUI();
+
+  // Se vespaDB aggiorna o scarica dal Cloud MongoDB la configurazione, ricarica i form UI
+  if (window.vespaDB && typeof window.vespaDB.onChange === 'function') {
+    window.vespaDB.onChange((data) => {
+      if (data && (data.type === 'CONFIG_UPDATED' || data.action === 'REMOTE_SYNC')) {
+        this.loadAllConfigsToUI();
+      }
+    });
+  }
+
+  // Ascolta storage events se le config cambiano da un'altra scheda
+  window.addEventListener('storage', (e) => {
+    if (e.key && e.key.startsWith('vespa_') && (e.key.includes('_config') || e.key.includes('_pulse'))) {
+      this.loadAllConfigsToUI();
+    }
+  });
+};
+
+VespaAdminDashboard.prototype.loadAllConfigsToUI = function() {
+  try {
+    this.loadEventConfig();
+    this.loadPaymentConfig();
+    this.renderGadgetConfig();
+    if (window.vespaPackagesUI && typeof window.vespaPackagesUI.render === 'function') {
+      window.vespaPackagesUI.render();
+    }
+  } catch (e) {
+    console.warn('[AdminDashboard] Errore caricamento configurazioni in UI:', e);
+  }
 };
 
 // ============================================================

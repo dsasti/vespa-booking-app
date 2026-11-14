@@ -82,6 +82,7 @@ class VespaDB {
         request.onsuccess = async (e) => {
           this.db = e.target.result;
           await this.hydrateIndexedDBFromLocalStorageIfEmpty();
+          await this.fetchAppConfig();
           await this.syncFromBackendIfAvailable();
           // Carica i dati demo solo la primissima volta in assoluto (se non è mai stato fatto un reset intenzionale)
           if (!localStorage.getItem('vespa_db_initialized') && !localStorage.getItem('vespa_db_wiped')) {
@@ -93,6 +94,7 @@ class VespaDB {
 
         request.onerror = async (e) => {
           console.warn('IndexedDB fallback LocalStorage', e);
+          await this.fetchAppConfig();
           await this.syncFromBackendIfAvailable();
           if (!localStorage.getItem('vespa_db_initialized') && !localStorage.getItem('vespa_db_wiped')) {
             await this.seedDemoDataIfEmpty();
@@ -518,6 +520,106 @@ class VespaDB {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(record)
     }).catch(() => {});
+  }
+
+  /**
+   * Salva una chiave di configurazione sia in localStorage sia sul Database (Cloud MongoDB Atlas e locale)
+   */
+  async saveAppConfig(key, data) {
+    try {
+      localStorage.setItem(key, typeof data === 'string' ? data : JSON.stringify(data));
+      localStorage.setItem(key + '_pulse', Date.now().toString());
+    } catch (e) {}
+
+    try {
+      await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, data })
+      });
+    } catch (e) {
+      console.warn('Errore salvataggio config su backend:', e);
+    }
+  }
+
+  /**
+   * Salva tutte le configurazioni sul Database (Cloud MongoDB Atlas e locale)
+   */
+  async saveAllAppConfig(configsMap) {
+    if (!configsMap || typeof configsMap !== 'object') return;
+    for (const [k, v] of Object.entries(configsMap)) {
+      try {
+        localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
+        localStorage.setItem(k + '_pulse', Date.now().toString());
+      } catch (e) {}
+    }
+
+    try {
+      await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config: configsMap })
+      });
+    } catch (e) {
+      console.warn('Errore salvataggio all config su backend:', e);
+    }
+  }
+
+  /**
+   * Recupera le configurazioni dal Database e sincronizza il localStorage
+   */
+  async fetchAppConfig() {
+    try {
+      const res = await fetch('/api/config?_t=' + Date.now());
+      if (res.ok) {
+        const body = await res.json();
+        if (body && body.config && typeof body.config === 'object') {
+          const cfg = body.config;
+          let changed = false;
+
+          // Se il server ha già una configurazione memorizzata, idratiamo localStorage
+          const keys = ['vespa_event_config', 'vespa_payment_config', 'vespa_gadget_config', 'vespa_packages_config'];
+          keys.forEach(k => {
+            if (cfg[k] !== undefined && cfg[k] !== null) {
+              const strVal = typeof cfg[k] === 'string' ? cfg[k] : JSON.stringify(cfg[k]);
+              if (localStorage.getItem(k) !== strVal) {
+                localStorage.setItem(k, strVal);
+                localStorage.setItem(k + '_pulse', Date.now().toString());
+                changed = true;
+              }
+            }
+          });
+
+          // Se invece il server è ancora vuoto per alcune chiavi ma localStorage locale ha già configurazioni salvate,
+          // sincronizziamo subito il server dal localStorage locale (prima inizializzazione automatica)
+          const localToSync = {};
+          keys.forEach(k => {
+            if (cfg[k] === undefined || cfg[k] === null) {
+              const localVal = localStorage.getItem(k);
+              if (localVal) {
+                try { localToSync[k] = JSON.parse(localVal); } catch(e) { localToSync[k] = localVal; }
+              }
+            }
+          });
+
+          if (Object.keys(localToSync).length > 0) {
+            fetch('/api/config', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ config: localToSync })
+            }).catch(() => {});
+          }
+
+          if (changed) {
+            this.notifyListeners({ type: 'CONFIG_UPDATED', config: cfg });
+          }
+          return cfg;
+        }
+      }
+    } catch (e) {
+      console.warn('Impossibile sincronizzare la configurazione con il server:', e);
+    }
+    return null;
   }
 
   async syncFromBackendIfAvailable() {
