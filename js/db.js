@@ -139,6 +139,50 @@ class VespaDB {
     });
   }
 
+  /**
+   * Formatta il nome di un Vespa Club: rimuove ", Provincia" finale, sigle A.S.D.,
+   * la preposizione subito dopo "Vespa Club" (di, del, della...) e mette in maiuscolo
+   * la prima lettera di ogni parola. Es: "vespa club di ASTI" -> "Vespa Club Asti".
+   */
+  static formatClubName(raw) {
+    let s = String(raw || '').trim();
+    if (!s) return '';
+    s = s.replace(/\s*,.*$/, '');                       // ", Provincia"
+    s = s.replace(/\ba\.?\s?s\.?\s?d\.?(?=\s|$)/gi, ' '); // A.S.D. / asd
+    s = s.replace(/\s+/g, ' ').trim();
+    let words = s.split(' ').filter(Boolean);
+    // Rimuove la preposizione subito dopo "Vespa Club" / "VC"
+    const preps = ['di', 'del', 'dello', 'della', 'dei', 'degli', 'delle', 'de', 'da', 'dal', 'dalla'];
+    let idx = -1;
+    for (let i = 0; i < words.length - 1; i++) {
+      if (words[i].toLowerCase() === 'vespa' && (words[i + 1] || '').toLowerCase() === 'club') { idx = i + 2; break; }
+    }
+    if (idx >= 0 && idx < words.length - 1 && preps.includes(words[idx].toLowerCase())) {
+      words.splice(idx, 1);
+    }
+    const cap = (w) => w.toLowerCase().replace(/(^|[-'’.])([a-zà-ÿ])/g, (m, p, c) => p + c.toUpperCase());
+    return words.map(cap).join(' ');
+  }
+
+  /** Chiave di confronto: due club con la stessa chiave sono lo stesso club. */
+  static clubKey(raw) {
+    return VespaDB.formatClubName(raw).toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, '');
+  }
+
+  /** Mappa chiave -> nome modello (quello della prima iscrizione in ordine di creazione). */
+  static buildCanonicalClubMap(registrations) {
+    const sorted = [...(registrations || [])].sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+    const map = {};
+    sorted.forEach(r => {
+      const f = VespaDB.formatClubName(r.vespaClub);
+      const k = VespaDB.clubKey(r.vespaClub);
+      if (k && !map[k]) map[k] = f;
+    });
+    return map;
+  }
+
   generateId() {
     const randomNum = Math.floor(1000 + Math.random() * 9000);
     return `VCA-2026-${randomNum}`;
@@ -170,6 +214,12 @@ class VespaDB {
     }
 
     const existingRecord = allExisting.find(r => r.id.toUpperCase() === id.toUpperCase());
+
+    // Normalizzazione nome Vespa Club: usa come modello il formato del primo club con la stessa chiave
+    const rawClubInput = (data.vespaClub !== undefined ? data.vespaClub : (existingRecord ? existingRecord.vespaClub : '')) || '';
+    const clubCanon = VespaDB.buildCanonicalClubMap(allExisting.filter(r => r.id.toUpperCase() !== id.toUpperCase()));
+    const clubFormatted = clubCanon[VespaDB.clubKey(rawClubInput)] || VespaDB.formatClubName(rawClubInput);
+    data = { ...data, vespaClub: clubFormatted };
     const importoDovuto = data.importoDovuto !== undefined
       ? data.importoDovuto
       : (existingRecord && existingRecord.importoDovuto !== undefined
