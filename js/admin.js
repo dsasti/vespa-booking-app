@@ -26,7 +26,12 @@ class VespaAdminDashboard {
     if (modeFilter) modeFilter.addEventListener('change', () => this.applyFilters());
     if (statusFilter) statusFilter.addEventListener('change', () => this.applyFilters());
 
-    window.vespaDB.onChange(async () => {
+    this.updateBadgeLegendAndFilters();
+
+    window.vespaDB.onChange(async (data) => {
+      if (data && (data.type === 'CONFIG_UPDATED' || data.type === 'CONFIG_WIPED')) {
+        this.updateBadgeLegendAndFilters();
+      }
       await this.refreshData();
     });
 
@@ -2817,6 +2822,92 @@ VespaAdminDashboard.prototype.saveGadgetConfig = function() {
     window.app.showToast('✅ Configurazione gadget e taglie salvata!', 'success');
   } else {
     alert('✅ Configurazione gadget e taglie salvata!');
+  }
+};
+
+/**
+ * Aggiorna dinamicamente la legenda dei badge e il menu a tendina filtro per pacchetto
+ */
+VespaAdminDashboard.prototype.updateBadgeLegendAndFilters = function() {
+  if (typeof document === 'undefined' || !window.VespaPkg) return;
+
+  const pkgs = window.VespaPkg.loadPackagesConfig();
+
+  // 1. Aggiorna legenda Sigle & Colori Pacchetto sopra la tabella
+  const legendEl = document.getElementById('adminBadgeLegendContainer');
+  if (legendEl) {
+    let legendHtml = '<strong style="color:var(--text-main); font-weight:800;">Sigle &amp; Colori Pacchetto:</strong>';
+    pkgs.forEach(p => {
+      const badgeSvg = window.VespaPkg.getBadgeHtml(p);
+      const color = p.badgeColor || '#1D4ED8';
+      legendHtml += `
+        <span style="display:inline-flex; align-items:center; gap:0.35rem;">
+          ${badgeSvg}
+          <strong style="color:${color};">${p.label}</strong>
+        </span>
+      `;
+    });
+    legendEl.innerHTML = legendHtml;
+  }
+
+  // 2. Aggiorna opzioni nel filtro pacchetto (adminModeFilter)
+  const filterEl = document.getElementById('adminModeFilter');
+  if (filterEl) {
+    const curVal = filterEl.value || 'ALL';
+    let optionsHtml = '<option value="ALL">Tutti i Pacchetti</option>';
+    pkgs.forEach(p => {
+      const code = p.code ? `[${p.code}]` : (p.emoji || '');
+      optionsHtml += `<option value="${p.id}">${code} ${p.label}</option>`;
+    });
+    filterEl.innerHTML = optionsHtml;
+    if (Array.from(filterEl.options).some(o => o.value === curVal)) {
+      filterEl.value = curVal;
+    }
+  }
+};
+
+/**
+ * Richiede conferma ed esegue il reset totale della configurazione evento
+ */
+VespaAdminDashboard.prototype.promptWipeAppConfig = async function() {
+  const confirmed = confirm(
+    "⚠️ ATTENZIONE: AZZERAMENTO CONFIGURAZIONE EVENTO\n\n" +
+    "Questa operazione cancellerà dal Cloud e dal computer:\n" +
+    "- Nome evento, date personalizzate e logo\n" +
+    "- Pacchetti personalizzati, sigle e quote\n" +
+    "- Nomi e configurazione dei servizi\n" +
+    "- Gadget personalizzati e taglie abbigliamento\n" +
+    "- Dati bancari e IBAN\n\n" +
+    "L'app verrà riportata allo stato iniziale vergine, pronta per essere configurata da un altro Vespa Club o organizzatore.\n\n" +
+    "Vuoi procedere?"
+  );
+
+  if (!confirmed) return;
+
+  try {
+    if (window.vespaDB && typeof window.vespaDB.wipeAppConfig === 'function') {
+      await window.vespaDB.wipeAppConfig();
+    } else {
+      localStorage.removeItem('vespa_event_config');
+      localStorage.removeItem('vespa_packages_config');
+      localStorage.removeItem('vespa_gadget_config');
+      localStorage.removeItem('vespa_payment_config');
+      localStorage.removeItem('vespa_services_labels_config');
+      await fetch('/api/config', { method: 'DELETE' }).catch(() => {});
+    }
+
+    if (window.app && window.app.showToast) {
+      window.app.showToast('✅ Configurazione evento azzerata con successo!', 'success');
+    } else {
+      alert('✅ Configurazione evento azzerata con successo!');
+    }
+
+    setTimeout(() => {
+      window.location.reload();
+    }, 1200);
+  } catch (err) {
+    console.error('Errore durante il reset della configurazione:', err);
+    alert('Errore durante il reset: ' + err.message);
   }
 };
 
