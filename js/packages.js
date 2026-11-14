@@ -32,8 +32,8 @@ const PACKAGE_BADGE_SVGS = {
   COMPLETA: createCustomBadgeSvg('C', '#1D4ED8'),
   FULL_SAB: createCustomBadgeSvg('SF', '#C2410C'),
   LIGHT_SAB: createCustomBadgeSvg('SL', '#EA580C'),
-  FULL_DOM: createCustomBadgeSvg('DF', '#15803D'),
-  LIGHT_DOM: createCustomBadgeSvg('DL', '#16A34A')
+  FULL_DOM: createCustomBadgeSvg('FD', '#15803D'),
+  LIGHT_DOM: createCustomBadgeSvg('LD', '#16A34A')
 };
 
 const VESPA_PACKAGES_DEFAULT = [
@@ -78,12 +78,12 @@ const VESPA_PACKAGES_DEFAULT = [
   },
   {
     id: 'FULL_DOM',
-    code: 'DF',
+    code: 'FD',
     badgeColor: '#15803D',
     label: 'FULL Domenica',
     description: 'FULL Domenica (Gadget, Colazione Dom., Aperitivo Dom., Pranzo Dom.)',
     defaultPrice: 50,
-    emoji: '[DF]',
+    emoji: '[FD]',
     badgeSvg: PACKAGE_BADGE_SVGS.FULL_DOM,
     includesSabato: false,
     includesDomenica: true,
@@ -91,12 +91,12 @@ const VESPA_PACKAGES_DEFAULT = [
   },
   {
     id: 'LIGHT_DOM',
-    code: 'DL',
+    code: 'LD',
     badgeColor: '#16A34A',
     label: 'LIGHT Domenica',
     description: 'LIGHT Domenica (Gadget, Colazione Dom., Aperitivo Dom.)',
     defaultPrice: 20,
-    emoji: '[DL]',
+    emoji: '[LD]',
     badgeSvg: PACKAGE_BADGE_SVGS.LIGHT_DOM,
     includesSabato: false,
     includesDomenica: true,
