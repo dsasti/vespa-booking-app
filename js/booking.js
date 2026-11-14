@@ -134,6 +134,15 @@ class VespaBookingForm {
       window.renderPackageBadgePreview();
     }
 
+    // Ripristina eventuali gadget opzionali a pagamento selezionati precedentemente
+    const savedGadgets = Array.isArray(record.gadgetsExtra) ? record.gadgetsExtra.map(g => g.id || g.name) : [];
+    document.querySelectorAll('.gadget-paid-checkbox').forEach(cb => {
+      cb.checked = savedGadgets.includes(cb.value) || savedGadgets.includes(cb.getAttribute('data-name'));
+    });
+    if (typeof window.updateBookingPriceCalculation === 'function') {
+      window.updateBookingPriceCalculation();
+    }
+
     // Gestione ricevuta di pagamento
     if (record.ricevutaPagamento && record.ricevutaPagamento.data) {
       this.uploadedFileBase64 = record.ricevutaPagamento.data;
@@ -288,11 +297,23 @@ class VespaBookingForm {
         annoVespa: document.getElementById('annoVespa')?.value || '1980',
         tagliaTshirt: (document.getElementById('tagliaTshirt')?.disabled) ? '' : (document.getElementById('tagliaTshirt')?.value || 'L'),
         modalitaPartecipazione: document.getElementById('modalitaPartecipazione')?.value,
+        gadgetsExtra: (function() {
+          const selectedPaidGadgets = [];
+          document.querySelectorAll('.gadget-paid-checkbox').forEach(cb => {
+            if (cb.checked) {
+              selectedPaidGadgets.push({
+                id: cb.value,
+                name: cb.getAttribute('data-name') || 'Gadget',
+                price: parseInt(cb.getAttribute('data-price'), 10) || 0
+              });
+            }
+          });
+          return selectedPaidGadgets;
+        })(),
         importoDovuto: (function() {
-          if (orig && orig.importoDovuto !== undefined && orig.importoDovuto !== null) {
-            // Se stiamo modificando un record esistente e il pacchetto non è cambiato, preserva la quota originale
-            const currentSelected = document.getElementById('modalitaPartecipazione')?.value;
-            if (currentSelected === orig.modalitaPartecipazione) return orig.importoDovuto;
+          if (typeof window.updateBookingPriceCalculation === 'function') {
+            const calc = window.updateBookingPriceCalculation();
+            return calc.totalPrice;
           }
           const selVal = document.getElementById('modalitaPartecipazione')?.value || '';
           if (window.VespaPkg) return window.VespaPkg.getPriceForRegistration(selVal);
