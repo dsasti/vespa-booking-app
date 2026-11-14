@@ -218,15 +218,14 @@
               <small style="font-size:0.78rem; color:var(--text-muted); margin-top:0.3rem; display:block;">Necessaria per recuperare o modificare la prenotazione.</small>
             </div>
 
-            <!-- VESPA CLUB DI APPARTENENZA (RICERCA ISTANTANEA ONLINE AUTOCOMPLETE STILE GOOGLE) -->
-            <div class="form-group" style="position:relative;">
+            <!-- VESPA CLUB DI APPARTENENZA (elenco Vespa Club d'Italia + inserimento libero) -->
+            <div class="form-group">
               <label for="vespaClub">Vespa Club di Appartenenza <span class="req">*</span></label>
-              <div style="position:relative;">
-                <input type="text" id="vespaClub" required placeholder="Es. Vespa Club Asti, Alfieri Asti, Roma, Torino..." autocomplete="off">
-                <span id="vespaClubSearchSpinner" style="display:none; position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:0.9rem;">⏳</span>
-              </div>
-              <div id="vespaClubSuggestions" class="autocomplete-dropdown" style="display:none;"></div>
-              <small style="font-size:0.78rem; color:var(--text-muted); margin-top:0.3rem; display:block;">Cerca e seleziona il tuo Vespa Club in tempo reale (ricerca istantanea stile Google).</small>
+              <input type="text" id="vespaClub" required placeholder="Es. Vespa Club Asti" list="vespaClubList" autocomplete="off">
+              <datalist id="vespaClubList">
+                <!-- Popolato da js/vespa-clubs-data.js + club già iscritti -->
+              </datalist>
+              <small style="font-size:0.78rem; color:var(--text-muted); margin-top:0.3rem; display:block;">Inizia a digitare per scegliere il tuo Vespa Club dall'elenco; se non è presente scrivilo liberamente.</small>
             </div>
 
             <!-- CITTÀ DI PROVENIENZA (RICERCA ISTANTANEA ONLINE GEOCODING AUTOCOMPLETE) -->
@@ -706,7 +705,7 @@
 
   <div id="toastContainer" class="toast-container"></div>
 
-  <!-- DB, QR, I18N, Booking, App -->
+  <script src="js/vespa-clubs-data.js"></script>
   <script src="js/db.js"></script>
   <script src="js/qr-generator.js"></script>
   <script src="js/i18n.js"></script>
@@ -1317,136 +1316,6 @@
       return c || 'Asti';
     }
 
-    // Autocomplete per Vespa Club
-    if (clubInput && clubDropdown) {
-      clubInput.addEventListener('input', () => {
-        clearTimeout(clubTimer);
-        const query = clubInput.value.trim();
-        if (query.length < 2) {
-          clubDropdown.style.display = 'none';
-          if (clubSpinner) clubSpinner.style.display = 'none';
-          return;
-        }
-
-        if (clubSpinner) clubSpinner.style.display = 'inline-block';
-
-        clubTimer = setTimeout(async () => {
-          try {
-            const suggestions = [];
-
-            // 1. Cerca nei club già iscritti nel database locale
-            if (window.vespaDB && typeof window.vespaDB.getAllRegistrations === 'function') {
-              try {
-                const all = await window.vespaDB.getAllRegistrations();
-                const setClubs = new Set();
-                all.forEach(r => {
-                  const c = (r.vespaClub || '').trim();
-                  if (c && c.toLowerCase().includes(query.toLowerCase())) {
-                    setClubs.add(c);
-                  }
-                });
-                setClubs.forEach(c => {
-                  suggestions.push({
-                    title: c,
-                    subtitle: 'Vespa Club iscritto all\'evento',
-                    isRegistered: true,
-                    city: extractCityFromClub(c)
-                  });
-                });
-              } catch (e) {}
-            }
-
-            // Aggiungi club celebri / sede se corrispondono alla ricerca
-            const knownClubs = [
-              { title: 'Vespa Club Asti A.s.D.', city: 'Asti' },
-              { title: 'Vespa Club Alfieri Asti', city: 'Asti' },
-              { title: 'Vespa Club Torino', city: 'Torino' },
-              { title: 'Vespa Club Milano', city: 'Milano' },
-              { title: 'Vespa Club Roma', city: 'Roma' },
-              { title: 'Vespa Club Alessandria', city: 'Alessandria' },
-              { title: 'Vespa Club Alba', city: 'Alba' },
-              { title: 'Vespa Club Canelli', city: 'Canelli' },
-              { title: 'Vespa Club Cuneo', city: 'Cuneo' },
-              { title: 'Vespa Club Genova', city: 'Genova' },
-              { title: 'Vespa Club Verona', city: 'Verona' },
-              { title: 'Vespa Club Bologna', city: 'Bologna' },
-              { title: 'Vespa Club Firenze', city: 'Firenze' },
-              { title: 'Vespa Club Napoli', city: 'Napoli' }
-            ];
-            knownClubs.forEach(kc => {
-              if (kc.title.toLowerCase().includes(query.toLowerCase()) && !suggestions.some(s => s.title.toLowerCase() === kc.title.toLowerCase())) {
-                suggestions.push({
-                  title: kc.title,
-                  subtitle: `Sede: ${kc.city}`,
-                  isRegistered: false,
-                  city: kc.city
-                });
-              }
-            });
-
-            // 2. Ricerca Geografica Online Istantanea (se si digita il nome di un comune/città)
-            const geoList = await queryNominatim(query, false);
-            geoList.forEach(item => {
-              const constructedClub = `Vespa Club ${item.city}`;
-              if (!suggestions.some(s => s.title.toLowerCase() === constructedClub.toLowerCase())) {
-                suggestions.push({
-                  title: constructedClub,
-                  subtitle: `📍 ${item.city} (${item.country})`,
-                  isRegistered: false,
-                  city: item.city
-                });
-              }
-            });
-
-            if (suggestions.length === 0) {
-              clubDropdown.innerHTML = `
-                <div class="autocomplete-item" onclick="window.selectVespaClubSuggestion('${query.replace(/'/g, "\\'")}', '')">
-                  <div>🛵 Usa "<strong>${query}</strong>"</div>
-                  <small>Club personalizzato</small>
-                </div>
-              `;
-            } else {
-              clubDropdown.innerHTML = suggestions.slice(0, 7).map(s => {
-                const safeTitle = s.title.replace(/'/g, "\\'");
-                const safeCity = (s.city || '').replace(/'/g, "\\'");
-                return `
-                  <div class="autocomplete-item" onclick="window.selectVespaClubSuggestion('${safeTitle}', '${safeCity}')">
-                    <div>
-                      🛵 <strong>${s.title}</strong>
-                    </div>
-                    <small>${s.subtitle}</small>
-                  </div>
-                `;
-              }).join('');
-            }
-            clubDropdown.style.display = 'block';
-          } finally {
-            if (clubSpinner) clubSpinner.style.display = 'none';
-          }
-        }, 200);
-      });
-
-      // Chiudi dropdown al click fuori
-      document.addEventListener('click', (e) => {
-        if (!clubInput.contains(e.target) && !clubDropdown.contains(e.target)) {
-          clubDropdown.style.display = 'none';
-        }
-      });
-    }
-
-    // Selezione di un suggerimento Vespa Club
-    window.selectVespaClubSuggestion = function(clubTitle, cityName) {
-      if (clubInput) clubInput.value = clubTitle;
-      if (clubDropdown) clubDropdown.style.display = 'none';
-
-      // Autocompila la Città di Provenienza se nota e il campo è vuoto o coincide
-      if (cityName && cittaInput) {
-        if (!cittaInput.value.trim() || cittaInput.value.trim() === 'Asti' || /\balfieri\b/i.test(clubTitle)) {
-          cittaInput.value = cityName;
-        }
-      }
-    };
-
     // Autocomplete per Città di Provenienza
     if (cittaInput && cittaDropdown) {
       cittaInput.addEventListener('input', () => {
@@ -1649,6 +1518,57 @@
     </div>
   </div>
 
+  <script>
+  /**
+   * Elenco Vespa Club d'Italia (js/vespa-clubs-data.js) + club già iscritti, nel formato
+   * normalizzato "Vespa Club Asti". Chi non trova il proprio club può scriverlo liberamente.
+   */
+  (async function populateVespaClubDatalist() {
+    const datalist = document.getElementById('vespaClubList');
+    const clubInput = document.getElementById('vespaClub');
+    const cittaInput = document.getElementById('cittaProvenienza');
+    if (!datalist || !clubInput) return;
+    try {
+      const byKey = {};
+      (window.VESPA_CLUBS_ITALIA || (typeof VESPA_CLUBS_ITALIA !== 'undefined' ? VESPA_CLUBS_ITALIA : [])).forEach(entry => {
+        const name = VespaDB.formatClubName(entry);
+        const key = VespaDB.clubKey(entry);
+        const prov = (String(entry).split(',')[1] || '').trim();
+        if (key && !byKey[key]) byKey[key] = { name, prov };
+      });
+      if (window.vespaDB) {
+        try {
+          await window.vespaDB.init();
+          const all = await window.vespaDB.getAllRegistrations();
+          const canon = VespaDB.buildCanonicalClubMap(all);
+          Object.keys(canon).forEach(k => { byKey[k] = { name: canon[k], prov: (byKey[k] && byKey[k].prov) || '' }; });
+        } catch (e) {}
+      }
+      const items = Object.values(byKey).sort((a, b) => a.name.localeCompare(b.name, 'it', { sensitivity: 'base' }));
+      datalist.innerHTML = '';
+      items.forEach(it => {
+        const opt = document.createElement('option');
+        opt.value = it.name;
+        if (it.prov) opt.label = it.name + ' (' + it.prov + ')';
+        datalist.appendChild(opt);
+      });
+
+      // Al termine della digitazione: formatta (modello = club già presente) e proponi la città
+      clubInput.addEventListener('change', async () => {
+        let formatted = VespaDB.formatClubName(clubInput.value);
+        const hit = byKey[VespaDB.clubKey(clubInput.value)];
+        if (hit) formatted = hit.name;
+        clubInput.value = formatted;
+        if (cittaInput && !cittaInput.value.trim() && typeof VespaDB.inferCityFromClub === 'function') {
+          const c = VespaDB.inferCityFromClub(formatted);
+          if (c) cittaInput.value = c;
+        }
+      });
+    } catch (e) {
+      console.warn('[VespaClubDatalist]', e);
+    }
+  })();
+  </script>
 </body>
 </html>
 
