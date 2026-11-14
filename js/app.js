@@ -144,7 +144,24 @@ class VespaApp {
     if (elTshirt) elTshirt.textContent = record.tagliaTshirt || 'L';
 
     const elModalita = document.getElementById('ticketModalita');
-    if (elModalita) elModalita.textContent = record.modalitaPartecipazione;
+    if (elModalita) {
+      let modTxt = record.modalitaPartecipazione;
+      if (record.importoDovuto) {
+        modTxt += ` (Totale complessivo: € ${record.importoDovuto})`;
+      }
+      elModalita.textContent = modTxt;
+    }
+
+    const gadgetsItem = document.getElementById('ticketGadgetsItem');
+    const gadgetsVal = document.getElementById('ticketGadgetsList');
+    if (gadgetsItem && gadgetsVal) {
+      if (Array.isArray(record.gadgetsExtra) && record.gadgetsExtra.length > 0) {
+        gadgetsVal.textContent = record.gadgetsExtra.map(g => `${g.name} (+€ ${g.price})`).join(', ');
+        gadgetsItem.style.display = '';
+      } else {
+        gadgetsItem.style.display = 'none';
+      }
+    }
 
     const elModel = document.getElementById('ticketVespaModel');
     if (elModel) elModel.textContent = `${record.modelloVespa} (${record.annoVespa})`;
