@@ -1651,12 +1651,14 @@ class VespaAdminDashboard {
   }
 
   renderClubRanking(allList, thead, tbody, podium) {
-    // Raggruppa per Vespa Club
+    // Raggruppa per Vespa Club mantenendo distinti i club anche se della stessa città
     const clubMap = {};
     allList.forEach(r => {
       const club = (r.vespaClub || 'Vespa Club Asti').trim();
+      const originCity = (r.cittaProvenienza || r.citta || '').trim();
       if (!clubMap[club]) {
-        const geo = getCityAndDistance(club);
+        // Calcola città e distanza per il club; se il club contiene "Alfieri", la città è Asti (0 km)
+        const geo = getCityAndDistance(originCity || club, club);
         clubMap[club] = {
           clubName: club,
           city: geo.city,
@@ -1789,7 +1791,6 @@ class VespaAdminDashboard {
 // Database chilometrico ufficiale da Asti per città Vespa Club
 const CITY_DISTANCES_FROM_ASTI = {
   'Asti': 0,
-  'Alfieri Asti': 0,
   'Canelli': 30,
   'Alba': 32,
   'Alessandria': 36,
@@ -2087,6 +2088,11 @@ const CITY_ALIASES = {
 function getCityAndDistance(cityOrClub, fallbackClub) {
   const rawTarget = (cityOrClub || fallbackClub || '').trim();
   if (!rawTarget) return { city: 'Asti', distance: 0 };
+
+  // Caso speciale Vespa Club Alfieri / Alfieri Asti: la città è ASTI (0 km)
+  if (/\balfieri\b/i.test(rawTarget) || (fallbackClub && /\balfieri\b/i.test(fallbackClub))) {
+    return { city: 'Asti', distance: 0 };
+  }
 
   // 0. Controlla gli alias (formati tipo "Nizza (Francia)") prima di tutto
   const targetLow = rawTarget.toLowerCase();
