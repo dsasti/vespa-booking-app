@@ -133,6 +133,7 @@ class VespaScanner {
   }
 
   focusInput() {
+    if (document.getElementById("vespaAuthGateOverlay")) return;
     var manualInput = document.getElementById("scannerManualInput");
     if (manualInput && document.activeElement !== manualInput) manualInput.focus();
   }
