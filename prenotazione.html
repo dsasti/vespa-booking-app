@@ -557,7 +557,9 @@
     const pkg = window.VespaPkg.resolvePackageFromRegistration(val);
     if (!pkg) { box.innerHTML = ''; return; }
 
-    const svg = (window.VespaPkg.PACKAGE_BADGE_SVGS && window.VespaPkg.PACKAGE_BADGE_SVGS[pkg.id]) || '';
+    const svg = (window.VespaPkg && typeof window.VespaPkg.getBadgeHtml === 'function')
+      ? window.VespaPkg.getBadgeHtml(pkg)
+      : ((window.VespaPkg.PACKAGE_BADGE_SVGS && window.VespaPkg.PACKAGE_BADGE_SVGS[pkg.id]) || '');
     const price = pkg.price || pkg.defaultPrice;
     const services = Array.isArray(pkg.services) ? pkg.services : [];
     const fieldsInfo = window.VespaPkg.SERVICE_DB_FIELDS || {};
@@ -572,9 +574,10 @@
     let servicesBadgesHtml = '';
     if (services.length > 0) {
       servicesBadgesHtml = services.map(s => {
-        const info = fieldsInfo[s];
-        const defaultLabel = info ? info.label : s;
-        const localizedLabel = translatedLabels[s] || defaultLabel;
+        const customSvcLabel = (window.VespaPkg && typeof window.VespaPkg.getServiceLabel === 'function')
+          ? window.VespaPkg.getServiceLabel(s)
+          : ((fieldsInfo[s] && fieldsInfo[s].label) || s);
+        const localizedLabel = (currentLang !== 'it' && translatedLabels[s]) ? translatedLabels[s] : customSvcLabel;
         return `<span style="display:inline-flex; align-items:center; font-size:0.8rem; background:#F0FDF4; color:#14532D; border:1px solid #86EFAC; padding:0.25rem 0.6rem; border-radius:6px; font-weight:700; box-shadow:0 1px 2px rgba(0,0,0,0.04);">✔ ${localizedLabel}</span>`;
       }).join(' ');
     } else {

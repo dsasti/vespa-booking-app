@@ -242,6 +242,22 @@ async function saveAllConfigAsync(allConfigs) {
   }
 }
 
+async function wipeAppConfigAsync() {
+  notifyDataChange();
+  if (isMongoConnected && AppConfigModel) {
+    try {
+      await AppConfigModel.deleteMany({});
+    } catch (e) {
+      console.error("Errore cancellazione configurazione MongoDB:", e.message);
+    }
+  }
+  try {
+    saveConfigSync({});
+  } catch (e) {
+    console.error("Errore cancellazione config locale:", e);
+  }
+}
+
 function readDataSync() {
   try {
     if (fs.existsSync(DATA_FILE)) {
@@ -335,6 +351,17 @@ const server = http.createServer(async (req, res) => {
           res.end(JSON.stringify({ error: err.message }));
         }
       });
+      return;
+    }
+    if (req.method === 'DELETE') {
+      try {
+        await wipeAppConfigAsync();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, message: 'Configurazione evento azzerata con successo' }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
       return;
     }
   }
