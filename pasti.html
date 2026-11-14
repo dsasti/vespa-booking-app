@@ -355,6 +355,7 @@
       // Update scanner mode
       if (window.vespaScanner) {
         window.vespaScanner.mode = mode;
+        window.vespaScanner.activeDayCode = (dayObj && dayObj.code) ? dayObj.code : (currentSelectedDayCode || null);
         if (typeof window.vespaScanner.populateParticipantDropdown === 'function') {
           window.vespaScanner.populateParticipantDropdown();
         }
