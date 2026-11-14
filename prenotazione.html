@@ -17,6 +17,123 @@
   <!-- External CDN Libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <style>
+    /* Autocomplete dropdown stile Google */
+    .autocomplete-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: #FFFFFF;
+      border: 1.5px solid #005A9C;
+      border-radius: 8px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+      max-height: 260px;
+      overflow-y: auto;
+      z-index: 1000;
+      margin-top: 3px;
+    }
+    .autocomplete-item {
+      padding: 0.65rem 0.9rem;
+      cursor: pointer;
+      font-size: 0.92rem;
+      color: #1E293B;
+      border-bottom: 1px solid #F1F5F9;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      transition: background 0.15s ease;
+    }
+    .autocomplete-item:hover, .autocomplete-item.active {
+      background: #EFF6FF;
+      color: #005A9C;
+    }
+    .autocomplete-item strong {
+      color: #005A9C;
+    }
+    .autocomplete-item small {
+      color: #64748B;
+      font-size: 0.78rem;
+    }
+
+    /* Griglia Pacchetti Iscrizione con Miniature Badge SVG */
+    .packages-selection-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 0.75rem;
+      margin-top: 0.35rem;
+    }
+    .package-card-option {
+      background: #FFFFFF;
+      border: 2px solid #E2E8F0;
+      border-radius: 10px;
+      padding: 0.75rem 0.9rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.6rem;
+      user-select: none;
+    }
+    .package-card-option:hover {
+      border-color: #93C5FD;
+      background: #F8FAFC;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 10px rgba(0, 90, 156, 0.08);
+    }
+    .package-card-option.selected {
+      border-color: #005A9C;
+      background: #EFF6FF;
+      box-shadow: 0 0 0 2px rgba(0, 90, 156, 0.2), 0 4px 12px rgba(0, 90, 156, 0.12);
+    }
+    .package-card-left {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      min-width: 0;
+    }
+    .package-card-badge-wrap {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .package-card-badge-wrap svg {
+      width: 32px !important;
+      height: 32px !important;
+      margin: 0 !important;
+      border-radius: 6px;
+    }
+    .package-card-info {
+      min-width: 0;
+    }
+    .package-card-name {
+      font-weight: 800;
+      font-size: 0.95rem;
+      color: #0F172A;
+      line-height: 1.25;
+      word-break: break-word;
+    }
+    .package-card-option.selected .package-card-name {
+      color: #003E6B;
+    }
+    .package-card-price {
+      flex-shrink: 0;
+      font-size: 1.05rem;
+      font-weight: 900;
+      color: #005A9C;
+      background: #F1F5F9;
+      border: 1px solid #CBD5E1;
+      padding: 0.25rem 0.55rem;
+      border-radius: 7px;
+    }
+    .package-card-option.selected .package-card-price {
+      background: #DBEAFE;
+      border-color: #93C5FD;
+    }
+  </style>
 </head>
 <body class="booking-page">
 
@@ -101,21 +218,26 @@
               <small style="font-size:0.78rem; color:var(--text-muted); margin-top:0.3rem; display:block;">Necessaria per recuperare o modificare la prenotazione.</small>
             </div>
 
-            <!-- VESPA CLUB DI APPARTENENZA -->
-            <div class="form-group">
+            <!-- VESPA CLUB DI APPARTENENZA (RICERCA ISTANTANEA ONLINE AUTOCOMPLETE STILE GOOGLE) -->
+            <div class="form-group" style="position:relative;">
               <label for="vespaClub">Vespa Club di Appartenenza <span class="req">*</span></label>
-              <input type="text" id="vespaClub" required placeholder="Es. Vespa Club Asti" list="vespaClubList" autocomplete="off">
-              <datalist id="vespaClubList">
-                <!-- Populated dynamically from DB + pre-seeded known clubs -->
-              </datalist>
-              <small style="font-size:0.78rem; color:var(--text-muted); margin-top:0.3rem; display:block;">Inizia a digitare per selezionare il tuo Vespa Club dall'elenco ufficiale italiano o scrivi il nome del club.</small>
+              <div style="position:relative;">
+                <input type="text" id="vespaClub" required placeholder="Es. Vespa Club Asti, Alfieri Asti, Roma, Torino..." autocomplete="off">
+                <span id="vespaClubSearchSpinner" style="display:none; position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:0.9rem;">⏳</span>
+              </div>
+              <div id="vespaClubSuggestions" class="autocomplete-dropdown" style="display:none;"></div>
+              <small style="font-size:0.78rem; color:var(--text-muted); margin-top:0.3rem; display:block;">Cerca e seleziona il tuo Vespa Club in tempo reale (ricerca istantanea stile Google).</small>
             </div>
 
-            <!-- CITTÀ DI PROVENIENZA -->
-            <div class="form-group">
+            <!-- CITTÀ DI PROVENIENZA (RICERCA ISTANTANEA ONLINE GEOCODING AUTOCOMPLETE) -->
+            <div class="form-group" style="position:relative;">
               <label for="cittaProvenienza">Città di Provenienza <span class="req">*</span></label>
-              <input type="text" id="cittaProvenienza" required placeholder="Es. Asti, Torino, Milano, Roma, Cuneo..." autocomplete="address-level2">
-              <small style="font-size:0.78rem; color:var(--text-muted); margin-top:0.3rem; display:block;">Città di residenza/partenza per il calcolo della classifica della provenienza più lontana.</small>
+              <div style="position:relative;">
+                <input type="text" id="cittaProvenienza" required placeholder="Es. Asti, Torino, Milano, Roma, Parigi..." autocomplete="off">
+                <span id="cittaSearchSpinner" style="display:none; position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:0.9rem;">⏳</span>
+              </div>
+              <div id="cittaSuggestions" class="autocomplete-dropdown" style="display:none;"></div>
+              <small style="font-size:0.78rem; color:var(--text-muted); margin-top:0.3rem; display:block;">Città di provenienza/sede del club per il calcolo della classifica della distanza.</small>
             </div>
 
             <!-- NUMERO TESSERA VCI -->
@@ -270,14 +392,22 @@
               </select>
             </div>
 
-            <!-- MODALITÀ DI PARTECIPAZIONE CON PREZZI CORRETTI -->
+            <!-- MODALITÀ DI PARTECIPAZIONE & QUOTA (CON MINIATURE BADGE GRAFICHE DEI PACCHETTI) -->
             <div class="form-group full-width">
               <label for="modalitaPartecipazione">Modalità di Partecipazione & Quota <span class="req">*</span></label>
-              <select id="modalitaPartecipazione" required style="font-size:1.05rem; font-weight:800; color:var(--vespa-blue-dark);" onchange="renderPackageBadgePreview()">
-                <!-- Popolato dinamicamente da packages.js al caricamento della pagina -->
+              
+              <!-- Selettore Visivo con Miniature Badge SVG dei Pacchetti Creati nella Dashboard -->
+              <div id="packageCardsGrid" class="packages-selection-grid">
+                <!-- Generato dinamicamente con miniature badge SVG, titolo e quota -->
+              </div>
+
+              <!-- Select nativo mantenuto sincronizzato (accessibilità, mobile e fallback form) -->
+              <select id="modalitaPartecipazione" required style="display:none;" onchange="syncPackageCardsFromSelect(); renderPackageBadgePreview();">
                 <option value="">⏳ Caricamento pacchetti...</option>
               </select>
-              <div id="packageBadgePreview" style="margin-top:0.6rem;"></div>
+
+              <!-- Dettaglio Servizi Inclusi nel Pacchetto Selezionato -->
+              <div id="packageBadgePreview" style="margin-top:0.75rem;"></div>
             </div>
 
             <!-- SEZIONE COORDINATE IBAN E PAGAMENTO BONIFICO -->
@@ -537,7 +667,7 @@
 
   <div id="toastContainer" class="toast-container"></div>
 
-  <script src="js/vespa-clubs-data.js"></script>
+  <!-- DB, QR, I18N, Booking, App -->
   <script src="js/db.js"></script>
   <script src="js/qr-generator.js"></script>
   <script src="js/i18n.js"></script>
@@ -545,8 +675,35 @@
   <script src="js/app.js"></script>
   <script>
   /**
-   * Popola dinamicamente il <select> dei pacchetti con i pacchetti attivi
-   * configurati dall'organizzatore in localStorage.
+   * Gestione Selettore Pacchetti con Miniature Badge SVG:
+   * Sincronizza le card visive e il <select> sottostante, mostrando
+   * esattamente le miniature grafiche (es. FD, LD, C, SF...) come create nella dashboard.
+   */
+  window.selectPackageCard = function(pkgValue) {
+    const sel = document.getElementById('modalitaPartecipazione');
+    if (sel) {
+      sel.value = pkgValue;
+      if (typeof sel.onchange === 'function') sel.onchange();
+    }
+    syncPackageCardsFromSelect();
+  };
+
+  window.syncPackageCardsFromSelect = function() {
+    const sel = document.getElementById('modalitaPartecipazione');
+    const curVal = sel ? sel.value : '';
+    const cards = document.querySelectorAll('.package-card-option');
+    cards.forEach(card => {
+      if (card.getAttribute('data-value') === curVal) {
+        card.classList.add('selected');
+      } else {
+        card.classList.remove('selected');
+      }
+    });
+  };
+
+  /**
+   * Popola dinamicamente il grid delle card dei pacchetti e il <select>
+   * con le miniature grafiche SVG reali generate per ciascun pacchetto.
    */
   window.renderPackageBadgePreview = function() {
     const sel = document.getElementById('modalitaPartecipazione');
@@ -607,21 +764,59 @@
     `;
   };
 
-  (function populatePackagesSelect() {
+  (function populatePackagesUI() {
     function doPopulate() {
       const sel = document.getElementById('modalitaPartecipazione');
+      const grid = document.getElementById('packageCardsGrid');
       if (!sel || !window.VespaPkg) return;
       const active = window.VespaPkg.getActivePackages();
       if (!active.length) {
         sel.innerHTML = '<option value="">Nessun pacchetto disponibile</option>';
+        if (grid) grid.innerHTML = '<div style="color:var(--text-muted); font-size:0.9rem;">Nessun pacchetto disponibile al momento.</div>';
         return;
       }
+
+      // 1. Popola il select sottostante
+      const previouslySelected = sel.value;
       sel.innerHTML = active.map(pkg => {
-        const badgeCode = pkg.code ? `[${pkg.code}]` : (pkg.emoji || '');
-        return `<option value="${pkg.id}|${pkg.label} - € ${pkg.price}">${badgeCode} ${pkg.label} — € ${pkg.price}</option>`;
+        return `<option value="${pkg.id}|${pkg.label} - € ${pkg.price}">${pkg.label} — € ${pkg.price}</option>`;
       }).join('');
+
+      // Mantieni selezione precedente se valida, altrimenti seleziona il primo
+      let chosenValue = `${active[0].id}|${active[0].label} - € ${active[0].price}`;
+      if (previouslySelected && active.some(p => `${p.id}|${p.label} - € ${p.price}` === previouslySelected)) {
+        chosenValue = previouslySelected;
+      }
+      sel.value = chosenValue;
+
+      // 2. Popola il selettore visivo a tessere con le miniature badge SVG reali
+      if (grid) {
+        grid.innerHTML = active.map(pkg => {
+          const val = `${pkg.id}|${pkg.label} - € ${pkg.price}`;
+          const isSel = (val === chosenValue);
+          const badgeSvg = (typeof window.VespaPkg.getBadgeHtml === 'function')
+            ? window.VespaPkg.getBadgeHtml(pkg)
+            : ((window.VespaPkg.PACKAGE_BADGE_SVGS && window.VespaPkg.PACKAGE_BADGE_SVGS[pkg.id]) || '');
+          const safeVal = val.replace(/"/g, '&quot;');
+          return `
+            <div class="package-card-option ${isSel ? 'selected' : ''}" data-value="${safeVal}" onclick="window.selectPackageCard('${safeVal}')">
+              <div class="package-card-left">
+                <div class="package-card-badge-wrap">
+                  ${badgeSvg}
+                </div>
+                <div class="package-card-info">
+                  <div class="package-card-name">${pkg.label}</div>
+                </div>
+              </div>
+              <div class="package-card-price">€ ${pkg.price}</div>
+            </div>
+          `;
+        }).join('');
+      }
+
       renderPackageBadgePreview();
     }
+
     // Esegui subito e aggiorna se l'organizzatore cambia config in un'altra scheda o dopo sync dal DB Cloud
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', doPopulate);
@@ -904,36 +1099,272 @@
   </script>
   <script>
   /**
-   * Popola il datalist dei Vespa Club con l'elenco dei Vespa Club registrati in Italia
-   * più eventuali ulteriori club presenti nel database delle registrazioni.
+   * RICERCA ONLINE IN TEMPO REALE CON AUTOCOMPLETE STILE GOOGLE
+   * Per Vespa Club e Città di Provenienza.
+   * - Ricerca istantanea asincrona mentre l'utente digita
+   * - Query con debounce a 200ms
+   * - Autocomplete Vespa Club: combina club già registrati, club noti e ricerca geografica
+   * - Quando si seleziona un club con città (es. Vespa Club Alfieri Asti -> Asti),
+   *   imposta automaticamente anche la Città di Provenienza
    */
-  (async function populateVespaClubDatalist() {
-    try {
-      const datalist = document.getElementById('vespaClubList');
-      if (!datalist) return;
+  (function initOnlineAutocomplete() {
+    const clubInput = document.getElementById('vespaClub');
+    const clubDropdown = document.getElementById('vespaClubSuggestions');
+    const clubSpinner = document.getElementById('vespaClubSearchSpinner');
 
-      const clubsSet = new Set(window.VESPA_CLUBS_ITALIA || []);
+    const cittaInput = document.getElementById('cittaProvenienza');
+    const cittaDropdown = document.getElementById('cittaSuggestions');
+    const cittaSpinner = document.getElementById('cittaSearchSpinner');
 
-      if (window.vespaDB) {
-        await window.vespaDB.init();
-        const all = await window.vespaDB.getAllRegistrations();
-        all.forEach(r => {
-          const club = (r.vespaClub || '').trim();
-          if (club) clubsSet.add(club);
-        });
+    let clubTimer = null;
+    let cittaTimer = null;
+
+    // Cache locale per risposte rapide istantanee (0ms)
+    const geoCache = new Map();
+
+    async function queryNominatim(query, isCityOnly) {
+      const q = query.trim();
+      if (!q || q.length < 2) return [];
+      const cacheKey = `${isCityOnly ? 'city:' : 'all:'}${q.toLowerCase()}`;
+      if (geoCache.has(cacheKey)) {
+        return geoCache.get(cacheKey);
       }
 
-      const sortedClubs = Array.from(clubsSet).sort((a, b) => a.localeCompare(b, 'it', { sensitivity: 'base' }));
-
-      datalist.innerHTML = '';
-      sortedClubs.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c;
-        datalist.appendChild(opt);
-      });
-    } catch (e) {
-      console.warn('[VespaClubDatalist] Could not populate club list:', e);
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&addressdetails=1&limit=6`;
+        const resp = await fetch(url, {
+          headers: { 'Accept-Language': 'it,en' }
+        });
+        if (!resp.ok) return [];
+        const data = await resp.json();
+        const results = (data || []).map(item => {
+          const addr = item.address || {};
+          const city = addr.city || addr.town || addr.village || addr.municipality || addr.county || item.name;
+          const state = addr.country || '';
+          return {
+            displayName: item.display_name,
+            city: city,
+            country: state,
+            type: item.type
+          };
+        });
+        geoCache.set(cacheKey, results);
+        return results;
+      } catch (e) {
+        return [];
+      }
     }
+
+    // Helper per estrarre la città pulita da un nome di Vespa Club
+    function extractCityFromClub(clubName) {
+      if (!clubName) return '';
+      // Gestione club Alfieri: ha sede ad Asti
+      if (/\balfieri\b/i.test(clubName)) return 'Asti';
+      let c = clubName
+        .replace(/vespa\s+club/gi, '')
+        .replace(/v\.?c\.?/gi, '')
+        .replace(/a\.?s\.?d\.?/gi, '')
+        .trim();
+      return c || 'Asti';
+    }
+
+    // Autocomplete per Vespa Club
+    if (clubInput && clubDropdown) {
+      clubInput.addEventListener('input', () => {
+        clearTimeout(clubTimer);
+        const query = clubInput.value.trim();
+        if (query.length < 2) {
+          clubDropdown.style.display = 'none';
+          if (clubSpinner) clubSpinner.style.display = 'none';
+          return;
+        }
+
+        if (clubSpinner) clubSpinner.style.display = 'inline-block';
+
+        clubTimer = setTimeout(async () => {
+          try {
+            const suggestions = [];
+
+            // 1. Cerca nei club già iscritti nel database locale
+            if (window.vespaDB && typeof window.vespaDB.getAllRegistrations === 'function') {
+              try {
+                const all = await window.vespaDB.getAllRegistrations();
+                const setClubs = new Set();
+                all.forEach(r => {
+                  const c = (r.vespaClub || '').trim();
+                  if (c && c.toLowerCase().includes(query.toLowerCase())) {
+                    setClubs.add(c);
+                  }
+                });
+                setClubs.forEach(c => {
+                  suggestions.push({
+                    title: c,
+                    subtitle: 'Vespa Club iscritto all\'evento',
+                    isRegistered: true,
+                    city: extractCityFromClub(c)
+                  });
+                });
+              } catch (e) {}
+            }
+
+            // Aggiungi club celebri / sede se corrispondono alla ricerca
+            const knownClubs = [
+              { title: 'Vespa Club Asti A.s.D.', city: 'Asti' },
+              { title: 'Vespa Club Alfieri Asti', city: 'Asti' },
+              { title: 'Vespa Club Torino', city: 'Torino' },
+              { title: 'Vespa Club Milano', city: 'Milano' },
+              { title: 'Vespa Club Roma', city: 'Roma' },
+              { title: 'Vespa Club Alessandria', city: 'Alessandria' },
+              { title: 'Vespa Club Alba', city: 'Alba' },
+              { title: 'Vespa Club Canelli', city: 'Canelli' },
+              { title: 'Vespa Club Cuneo', city: 'Cuneo' },
+              { title: 'Vespa Club Genova', city: 'Genova' },
+              { title: 'Vespa Club Verona', city: 'Verona' },
+              { title: 'Vespa Club Bologna', city: 'Bologna' },
+              { title: 'Vespa Club Firenze', city: 'Firenze' },
+              { title: 'Vespa Club Napoli', city: 'Napoli' }
+            ];
+            knownClubs.forEach(kc => {
+              if (kc.title.toLowerCase().includes(query.toLowerCase()) && !suggestions.some(s => s.title.toLowerCase() === kc.title.toLowerCase())) {
+                suggestions.push({
+                  title: kc.title,
+                  subtitle: `Sede: ${kc.city}`,
+                  isRegistered: false,
+                  city: kc.city
+                });
+              }
+            });
+
+            // 2. Ricerca Geografica Online Istantanea (se si digita il nome di un comune/città)
+            const geoList = await queryNominatim(query, false);
+            geoList.forEach(item => {
+              const constructedClub = `Vespa Club ${item.city}`;
+              if (!suggestions.some(s => s.title.toLowerCase() === constructedClub.toLowerCase())) {
+                suggestions.push({
+                  title: constructedClub,
+                  subtitle: `📍 ${item.city} (${item.country})`,
+                  isRegistered: false,
+                  city: item.city
+                });
+              }
+            });
+
+            if (suggestions.length === 0) {
+              clubDropdown.innerHTML = `
+                <div class="autocomplete-item" onclick="window.selectVespaClubSuggestion('${query.replace(/'/g, "\\'")}', '')">
+                  <div>🛵 Usa "<strong>${query}</strong>"</div>
+                  <small>Club personalizzato</small>
+                </div>
+              `;
+            } else {
+              clubDropdown.innerHTML = suggestions.slice(0, 7).map(s => {
+                const safeTitle = s.title.replace(/'/g, "\\'");
+                const safeCity = (s.city || '').replace(/'/g, "\\'");
+                return `
+                  <div class="autocomplete-item" onclick="window.selectVespaClubSuggestion('${safeTitle}', '${safeCity}')">
+                    <div>
+                      🛵 <strong>${s.title}</strong>
+                    </div>
+                    <small>${s.subtitle}</small>
+                  </div>
+                `;
+              }).join('');
+            }
+            clubDropdown.style.display = 'block';
+          } finally {
+            if (clubSpinner) clubSpinner.style.display = 'none';
+          }
+        }, 200);
+      });
+
+      // Chiudi dropdown al click fuori
+      document.addEventListener('click', (e) => {
+        if (!clubInput.contains(e.target) && !clubDropdown.contains(e.target)) {
+          clubDropdown.style.display = 'none';
+        }
+      });
+    }
+
+    // Selezione di un suggerimento Vespa Club
+    window.selectVespaClubSuggestion = function(clubTitle, cityName) {
+      if (clubInput) clubInput.value = clubTitle;
+      if (clubDropdown) clubDropdown.style.display = 'none';
+
+      // Autocompila la Città di Provenienza se nota e il campo è vuoto o coincide
+      if (cityName && cittaInput) {
+        if (!cittaInput.value.trim() || cittaInput.value.trim() === 'Asti' || /\balfieri\b/i.test(clubTitle)) {
+          cittaInput.value = cityName;
+        }
+      }
+    };
+
+    // Autocomplete per Città di Provenienza
+    if (cittaInput && cittaDropdown) {
+      cittaInput.addEventListener('input', () => {
+        clearTimeout(cittaTimer);
+        const query = cittaInput.value.trim();
+        if (query.length < 2) {
+          cittaDropdown.style.display = 'none';
+          if (cittaSpinner) cittaSpinner.style.display = 'none';
+          return;
+        }
+
+        if (cittaSpinner) cittaSpinner.style.display = 'inline-block';
+
+        cittaTimer = setTimeout(async () => {
+          try {
+            const geoList = await queryNominatim(query, true);
+            const uniqueCities = [];
+            const seen = new Set();
+            geoList.forEach(item => {
+              const name = item.city;
+              if (name && !seen.has(name.toLowerCase())) {
+                seen.add(name.toLowerCase());
+                uniqueCities.push({
+                  name: name,
+                  country: item.country,
+                  full: item.displayName
+                });
+              }
+            });
+
+            if (uniqueCities.length === 0) {
+              cittaDropdown.innerHTML = `
+                <div class="autocomplete-item" onclick="window.selectCittaSuggestion('${query.replace(/'/g, "\\'")}')">
+                  <div>📍 Usa "<strong>${query}</strong>"</div>
+                  <small>Città inserita</small>
+                </div>
+              `;
+            } else {
+              cittaDropdown.innerHTML = uniqueCities.slice(0, 6).map(c => {
+                const safeCity = c.name.replace(/'/g, "\\'");
+                return `
+                  <div class="autocomplete-item" onclick="window.selectCittaSuggestion('${safeCity}')">
+                    <div>📍 <strong>${c.name}</strong></div>
+                    <small>${c.country}</small>
+                  </div>
+                `;
+              }).join('');
+            }
+            cittaDropdown.style.display = 'block';
+          } finally {
+            if (cittaSpinner) cittaSpinner.style.display = 'none';
+          }
+        }, 200);
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!cittaInput.contains(e.target) && !cittaDropdown.contains(e.target)) {
+          cittaDropdown.style.display = 'none';
+        }
+      });
+    }
+
+    // Selezione suggerimento Città
+    window.selectCittaSuggestion = function(cityName) {
+      if (cittaInput) cittaInput.value = cityName;
+      if (cittaDropdown) cittaDropdown.style.display = 'none';
+    };
   })();
 
   /**
