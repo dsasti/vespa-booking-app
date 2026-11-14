@@ -48,9 +48,15 @@
           <div class="stat-card"><div class="stat-icon" style="background:#FEF3C7; color:#D97706;">📅</div><div><div class="stat-val" id="statPresenceBreakdown">0 / 0</div><div class="stat-lbl">Presenze (Sab / Dom)</div></div></div>
         </div>
 
-        <div style="margin-bottom:1.5rem; background:#F8FAFC; padding:1rem; border-radius:12px; border:1px solid var(--bg-card-border);">
-          <div style="font-size:0.85rem; color:var(--vespa-blue-dark); font-weight:800; text-transform:uppercase; margin-bottom:0.5rem;">👕 Riepilogo Taglie T-Shirt Ordinate per l'Evento:</div>
-          <div id="statTshirtBreakdown" style="display:flex; gap:0.5rem; flex-wrap:wrap;"></div>
+        <div style="margin-bottom:1.5rem; display:flex; gap:1rem; flex-wrap:wrap; align-items:stretch;">
+          <div id="statTshirtBox" style="flex:1 1 320px; background:#F8FAFC; padding:1rem; border-radius:12px; border:1px solid var(--bg-card-border);">
+            <div id="statTshirtTitle" style="font-size:0.85rem; color:var(--vespa-blue-dark); font-weight:800; text-transform:uppercase; margin-bottom:0.5rem;">👕 Riepilogo Taglie T-Shirt Ordinate per l'Evento:</div>
+            <div id="statTshirtBreakdown" style="display:flex; gap:0.5rem; flex-wrap:wrap;"></div>
+          </div>
+          <div id="statGadgetsBox" style="flex:1 1 320px; background:#FFFBEB; padding:1rem; border-radius:12px; border:1px solid #FCD34D; display:none;">
+            <div style="font-size:0.85rem; color:#92400E; font-weight:800; text-transform:uppercase; margin-bottom:0.5rem;">🎁 Gadget da Ordinare (quantità per tipo):</div>
+            <div id="statGadgetsBreakdown" style="display:flex; gap:0.5rem; flex-wrap:wrap;"></div>
+          </div>
         </div>
 
         <!-- ================================================================
