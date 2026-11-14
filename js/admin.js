@@ -1466,7 +1466,8 @@ class VespaAdminDashboard {
     if (!select) return;
 
     const currentVal = this.rankingClubFilter || 'ALL';
-    const clubs = [...new Set(this.allRegistrations.map(r => (r.vespaClub || '').trim()).filter(Boolean))].sort();
+    const canon = VespaDB.buildCanonicalClubMap(this.allRegistrations);
+    const clubs = Object.values(canon).sort((a, b) => a.localeCompare(b, 'it'));
 
     select.innerHTML = '<option value="ALL">🌟 Tutti i Vespa Club</option>' +
       clubs.map(c => `<option value="${c}" ${c === currentVal ? 'selected' : ''}>${c}</option>`).join('');
@@ -1483,7 +1484,7 @@ class VespaAdminDashboard {
 
     // Se c'è un filtro per Club attivo
     if (this.rankingClubFilter && this.rankingClubFilter !== 'ALL') {
-      participants = participants.filter(r => (r.vespaClub || '').trim() === this.rankingClubFilter);
+      participants = participants.filter(r => VespaDB.clubKey(r.vespaClub) === VespaDB.clubKey(this.rankingClubFilter));
     }
 
     if (this.activeRankingTab === 'oldest') {
@@ -1697,8 +1698,10 @@ class VespaAdminDashboard {
   renderClubRanking(allList, thead, tbody, podium) {
     // Raggruppa per Vespa Club mantenendo distinti i club anche se della stessa città
     const clubMap = {};
+    const canonClubs = VespaDB.buildCanonicalClubMap(this.allRegistrations);
     allList.forEach(r => {
-      const club = (r.vespaClub || 'Vespa Club Asti').trim();
+      const rawClub = (r.vespaClub || 'Vespa Club Asti').trim();
+      const club = canonClubs[VespaDB.clubKey(rawClub)] || VespaDB.formatClubName(rawClub);
       const originCity = (r.cittaProvenienza || r.citta || '').trim();
       if (!clubMap[club]) {
         // Calcola città e distanza per il club; se il club contiene "Alfieri", la città è Asti (0 km)
