@@ -543,6 +543,33 @@ class VespaDB {
   }
 
   /**
+   * Azzera completamente la configurazione dell'app (per rivendita o nuovo club)
+   */
+  async wipeAppConfig() {
+    const keys = [
+      'vespa_event_config', 'vespa_event_config_pulse',
+      'vespa_payment_config', 'vespa_payment_config_pulse',
+      'vespa_gadget_config', 'vespa_gadget_config_pulse',
+      'vespa_packages_config', 'vespa_packages_config_pulse',
+      'vespa_services_labels_config', 'vespa_services_labels_config_pulse'
+    ];
+    keys.forEach(k => {
+      try { localStorage.removeItem(k); } catch(e) {}
+    });
+
+    try {
+      await fetch('/api/config', { method: 'DELETE' });
+    } catch (e) {
+      console.warn('Errore chiamata reset configurazione backend:', e);
+    }
+
+    if (this.broadcast) {
+      try { this.broadcast.postMessage({ type: 'CONFIG_WIPED' }); } catch(e) {}
+    }
+    this.notifyListeners({ type: 'CONFIG_UPDATED', config: {} });
+  }
+
+  /**
    * Salva tutte le configurazioni sul Database (Cloud MongoDB Atlas e locale)
    */
   async saveAllAppConfig(configsMap) {
@@ -578,7 +605,7 @@ class VespaDB {
           let changed = false;
 
           // Se il server ha già una configurazione memorizzata, idratiamo localStorage
-          const keys = ['vespa_event_config', 'vespa_payment_config', 'vespa_gadget_config', 'vespa_packages_config'];
+          const keys = ['vespa_event_config', 'vespa_payment_config', 'vespa_gadget_config', 'vespa_packages_config', 'vespa_services_labels_config'];
           keys.forEach(k => {
             if (cfg[k] !== undefined && cfg[k] !== null) {
               const strVal = typeof cfg[k] === 'string' ? cfg[k] : JSON.stringify(cfg[k]);
