@@ -332,6 +332,11 @@ class VespaScanner {
         return true;
       });
 
+      // Filtro 3: Per Gadget e Pasti/Servizi, ESCLUDI chi NON è ancora passato dall'Accettazione per quel giorno
+      all = all.filter(function(r) {
+        return self.checkParticipantAcceptedForService(r, mode).passed;
+      });
+
       all.sort(function(a, b) { return (a.cognome + ' ' + a.nome).localeCompare(b.cognome + ' ' + b.nome); });
       var self = this;
       var promptText = (activeSvcKey || mode)
@@ -634,6 +639,79 @@ class VespaScanner {
     await this.validateAndProcessRegistration(record);
   }
 
+  checkParticipantAcceptedForService(p, mode) {
+    if (!p) return { passed: false, dayLabel: "" };
+    var m = (mode || "").toUpperCase();
+
+    // Se è la modalità Accettazione stessa, il check è sempre superato
+    if (m === "ACCETTAZIONE" || m.startsWith("ACCETTAZIONE_")) {
+      return { passed: true, dayLabel: "" };
+    }
+
+    var sabAccepted = !!(p.statoAccettazioneSabato || p.accettazioneConclusa);
+    var domAccepted = !!(p.statoAccettazioneDomenica || p.accettazioneConclusa);
+
+    // 1. Servizi del Sabato (Merenda, Aperitivo Sabato, Cena Sabato)
+    if (m === "MERENDA" || m === "APERITIVO_SAB" || m === "CENA" || m.includes("_SABATO") || m.includes("_SAB")) {
+      return {
+        passed: sabAccepted,
+        dayLabel: "(Sabato)"
+      };
+    }
+
+    // 2. Servizi della Domenica (Colazione, Aperitivo Domenica, Pranzo Domenica)
+    if (m === "COLAZIONE" || m === "APERITIVO_DOM" || m === "PRANZO" || m.includes("_DOMENICA") || m.includes("_DOM")) {
+      return {
+        passed: domAccepted,
+        dayLabel: "(Domenica)"
+      };
+    }
+
+    // 3. Servizio Aperitivo generico (aperitivo.html): controlla se ha fatto accettazione sabato o domenica in base al suo pacchetto
+    if (m === "APERITIVO") {
+      var includesSab = (typeof window !== 'undefined' && window.VespaPkg) ? window.VespaPkg.packageIncludesSabato(p.modalitaPartecipazione) : true;
+      var includesDom = (typeof window !== 'undefined' && window.VespaPkg) ? window.VespaPkg.packageIncludesDomenica(p.modalitaPartecipazione) : true;
+      if (includesSab && !includesDom) {
+        return { passed: sabAccepted, dayLabel: "(Sabato)" };
+      } else if (includesDom && !includesSab) {
+        return { passed: domAccepted, dayLabel: "(Domenica)" };
+      } else {
+        // Pacchetto completo o 2 giorni: accettato se passato almeno un giorno
+        return { passed: sabAccepted || domAccepted, dayLabel: "(del relativo giorno di presenza)" };
+      }
+    }
+
+    // 4. Consegna Gadget: deve essere passato dall'accettazione del giorno in cui è presente
+    if (m === "GADGET") {
+      var includesSab = (typeof window !== 'undefined' && window.VespaPkg) ? window.VespaPkg.packageIncludesSabato(p.modalitaPartecipazione) : true;
+      var includesDom = (typeof window !== 'undefined' && window.VespaPkg) ? window.VespaPkg.packageIncludesDomenica(p.modalitaPartecipazione) : true;
+      if (includesSab && !includesDom) {
+        return { passed: sabAccepted, dayLabel: "(Sabato)" };
+      } else if (includesDom && !includesSab) {
+        return { passed: domAccepted, dayLabel: "(Domenica)" };
+      } else {
+        return { passed: sabAccepted || domAccepted, dayLabel: "(Sabato o Domenica)" };
+      }
+    }
+
+    // 5. Se la pagina ha impostato activeDayCode esplicito (es. pasti.html)
+    if (this.activeDayCode) {
+      var dayUpper = this.activeDayCode.toUpperCase();
+      if (dayUpper === "SABATO" || dayUpper === "GIORNO_1") {
+        return { passed: sabAccepted, dayLabel: "(Sabato)" };
+      } else if (dayUpper === "DOMENICA" || dayUpper === "GIORNO_2") {
+        return { passed: domAccepted, dayLabel: "(Domenica)" };
+      } else {
+        var dynAccepted = !!(p["statoAccettazione_" + dayUpper.toLowerCase()] || p.accettazioneConclusa);
+        return { passed: dynAccepted, dayLabel: "(" + this.activeDayCode + ")" };
+      }
+    }
+
+    // Fallback generale: almeno un'accettazione effettuata
+    var anyAccepted = !!(sabAccepted || domAccepted || p.accettazioneConclusa);
+    return { passed: anyAccepted, dayLabel: "(del relativo giorno)" };
+  }
+
   async forceAcceptance(id) {
     if (window.vespaDB) await window.vespaDB.ensureInit();
     var record = (this.currentParticipant && this.currentParticipant.id === id)
@@ -704,6 +782,22 @@ class VespaScanner {
 
     var currentField = cfg.field;
     var currentLabel = cfg.label;
+
+    // ── Check blocco se NON è passato dall'Accettazione per il giorno del servizio ──
+    var isAccettazioneMode = (mode === "ACCETTAZIONE" || mode === "ACCETTAZIONE_SABATO" || mode === "ACCETTAZIONE_DOMENICA" || (mode && mode.startsWith("ACCETTAZIONE_")));
+    if (!isAccettazioneMode) {
+      var acceptanceCheck = this.checkParticipantAcceptedForService(p, mode);
+      if (!acceptanceCheck.passed) {
+        this.renderStatusFeedback(
+          "🛑 ACCESSO BLOCCATO — ACCETTAZIONE NON EFFETTUATA: " + p.cognome + " " + p.nome + 
+          " non può ritirare/fruire di «" + currentLabel + "» perché non è ancora passato dal Banco Accettazione " + acceptanceCheck.dayLabel + ". Effettuare prima l'accettazione.",
+          "danger",
+          p,
+          mode
+        );
+        return;
+      }
+    }
 
     // ── Check "già fruito" ──
     var isAlreadyDone = false;
