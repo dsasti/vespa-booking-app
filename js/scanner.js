@@ -3,6 +3,18 @@
  * Logica centrale automatizzata per il riconoscimento banchi e smarcamento istantaneo.
  */
 
+// Box con i gadget a pagamento acquistati dal partecipante, da consegnare insieme al kit
+function VespaPaidGadgetsHtml(p) {
+  var list = (p && Array.isArray(p.gadgetsExtra)) ? p.gadgetsExtra : [];
+  if (!list.length) return "";
+  var items = list.map(function (g) {
+    return "<div style='font-size:1.05rem; font-weight:900; color:#92400E;'>✅ " + (g.name || g.id) + " <span style='font-weight:700; font-size:0.85rem;'>(pagato € " + (g.price || 0) + ")</span></div>";
+  }).join("");
+  return "<div style='margin-top:.5rem; background:#FEF3C7; padding:.5rem .75rem; border-radius:8px; border:2px solid #F59E0B;'>" +
+    "<div style='font-size:0.78rem; font-weight:800; color:#B45309; text-transform:uppercase; margin-bottom:.25rem;'>🎁 Gadget a pagamento da consegnare (" + list.length + "):</div>" +
+    items + "</div>";
+}
+
 class VespaScanner {
   constructor() {
     this.html5QrCode = null;
@@ -573,7 +585,8 @@ class VespaScanner {
     if (mode === "GADGET") {
       var taglia = p.tagliaTshirt || "?";
       tagliaHtml = "<div style='font-size:1.15rem; color:#B91C1C; margin-top:.5rem; background:#FEE2E2; padding:.4rem .7rem; border-radius:8px; border:1.5px solid #FCA5A5; text-align:center;'>" +
-        "<strong>👕 TAGLIA DA CONSEGNARE: <span style='font-size:1.4rem; letter-spacing:1px;'>" + taglia + "</span></strong></div>";
+        "<strong>👕 TAGLIA DA CONSEGNARE: <span style='font-size:1.4rem; letter-spacing:1px;'>" + taglia + "</span></strong></div>" +
+        VespaPaidGadgetsHtml(p);
     }
 
     container.innerHTML =
@@ -1006,7 +1019,8 @@ class VespaScanner {
     if (p && displayMode === "GADGET") {
       var taglia = p.tagliaTshirt || "?";
       gadgetLine = "<div style='font-size:1.2rem;color:#B91C1C;margin-top:.4rem;background:#FEE2E2;padding:.4rem .7rem;border-radius:8px;border:2px solid #FCA5A5;text-align:center;'>" +
-        "<strong>👕 TAGLIA: <span style='font-size:1.5rem;letter-spacing:1px;'>" + taglia + "</span></strong></div>";
+        "<strong>👕 TAGLIA: <span style='font-size:1.5rem;letter-spacing:1px;'>" + taglia + "</span></strong></div>" +
+        VespaPaidGadgetsHtml(p);
     }
 
     var detailsHtml = "";
