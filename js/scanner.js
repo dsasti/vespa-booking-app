@@ -332,11 +332,6 @@ class VespaScanner {
         return true;
       });
 
-      // Filtro 3: Per Gadget e Pasti/Servizi, ESCLUDI chi NON è ancora passato dall'Accettazione per quel giorno
-      all = all.filter(function(r) {
-        return self.checkParticipantAcceptedForService(r, mode).passed;
-      });
-
       all.sort(function(a, b) { return (a.cognome + ' ' + a.nome).localeCompare(b.cognome + ' ' + b.nome); });
       var self = this;
       var promptText = (activeSvcKey || mode)
@@ -345,7 +340,9 @@ class VespaScanner {
 
       select.innerHTML = "<option value=\"\">" + promptText + "</option>" +
         all.map(function(r) {
-          return "<option value=\"" + r.id + "\">" + r.cognome + " " + r.nome + " (" + (r.vespaClub || 'Indipendente') + ") \u2014 " + r.id + "</option>";
+          var accInfo = self.checkParticipantAcceptedForService(r, mode);
+          var accBadge = accInfo.passed ? " [✅ Accettato]" : " [⏳ Non ancora in Accettazione]";
+          return "<option value=\"" + r.id + "\">" + r.cognome + " " + r.nome + " (" + (r.vespaClub || 'Indipendente') + ") — " + r.id + accBadge + "</option>";
         }).join("");
       select.onchange = function() {
         if (select.value) {
@@ -542,6 +539,15 @@ class VespaScanner {
     var isDom = (mode === 'ACCETTAZIONE_DOMENICA');
     var isAccettazione = (mode === 'ACCETTAZIONE' || isSab || isDom);
 
+    // Verifica se il partecipante è già passato dall'accettazione
+    var acceptanceCheck = isAccettazione ? { passed: true } : this.checkParticipantAcceptedForService(p, mode);
+    var accWarningHtml = "";
+    if (!isAccettazione && !acceptanceCheck.passed) {
+      accWarningHtml = "<div style='margin-top:0.75rem; padding:0.6rem 0.85rem; background:#FEF2F2; border:1.5px solid #F87171; border-radius:8px; color:#991B1B; font-size:0.85rem; font-weight:700;'>" +
+        "🛑 <strong>ATTENZIONE:</strong> Questo partecipante NON è ancora passato dall'Accettazione " + (acceptanceCheck.dayLabel || '') + ". Se confermi, l'accesso verrà bloccato dal sistema." +
+        "</div>";
+    }
+
     var serviceLabels = {
       "ACCETTAZIONE": "Accettazione Partecipante",
       "ACCETTAZIONE_SABATO": "Accettazione Sabato",
@@ -589,6 +595,7 @@ class VespaScanner {
           "<div style='margin-top:0.4rem; display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;'>" +
             "<strong>Stato Pagamento:</strong> " + payTag +
           "</div>" +
+          accWarningHtml +
           tagliaHtml +
         "</div>" +
 
