@@ -159,10 +159,46 @@ class VespaAdminDashboard {
       }
     }
 
+    // Gadget attivi dalla configurazione
+    let activeGadgets = [];
+    try { activeGadgets = window.VespaGadget ? window.VespaGadget.getActiveGadgets() : []; } catch (e) {}
+    const clothingActive = activeGadgets.some(g => g.isClothing === true);
+    const totalShirts = Object.values(tshirts).reduce((a, b) => a + b, 0);
+
+    const elTshirtBox = document.getElementById('statTshirtBox');
+    if (elTshirtBox) elTshirtBox.style.display = (clothingActive && totalShirts > 0) ? '' : 'none';
+
     if (elTshirts) {
-      elTshirts.innerHTML = Object.entries(tshirts)
+      const sizesHtml = Object.entries(tshirts)
+        .filter(([size, cnt]) => cnt > 0)
         .map(([size, cnt]) => `<span class="badge badge-info" style="font-size:0.8rem;">${size}: <strong>${cnt}</strong></span>`)
         .join(' ');
+      elTshirts.innerHTML = sizesHtml + ` <span class="badge badge-success" style="font-size:0.85rem;">TOTALE MAGLIETTE: <strong>${totalShirts}</strong></span>`;
+    }
+
+    // Totali per ogni gadget presente: a pagamento (acquirenti) e gratuiti (aventi diritto)
+    const elGadgetsBox = document.getElementById('statGadgetsBox');
+    const elGadgets = document.getElementById('statGadgetsBreakdown');
+    if (elGadgets && elGadgetsBox) {
+      const rows = [];
+      activeGadgets.forEach(g => {
+        if (g.isClothing) return; // già nel riepilogo magliette
+        const isPaid = g.isPaid === true && (parseInt(g.price, 10) > 0);
+        const key = g.id;
+        const cnt = isPaid
+          ? this.allRegistrations.filter(r => Array.isArray(r.gadgetsExtra) && r.gadgetsExtra.some(x => x.id === key || x.name === g.label)).length
+          : this.allRegistrations.length;
+        if (cnt > 0) {
+          rows.push(`<span class="badge" style="font-size:0.82rem; background:${isPaid ? '#FEF3C7' : '#DCFCE7'}; color:${isPaid ? '#92400E' : '#166534'}; border:1px solid ${isPaid ? '#FCD34D' : '#86EFAC'};">${g.label}${isPaid ? ' 💶' : ''}: <strong>${cnt}</strong></span>`);
+        }
+      });
+      // Gadget a pagamento di tipo abbigliamento: acquirenti
+      activeGadgets.filter(g => g.isClothing && g.isPaid === true && parseInt(g.price, 10) > 0).forEach(g => {
+        const cnt = this.allRegistrations.filter(r => Array.isArray(r.gadgetsExtra) && r.gadgetsExtra.some(x => x.id === g.id || x.name === g.label)).length;
+        if (cnt > 0) rows.push(`<span class="badge" style="font-size:0.82rem; background:#FEF3C7; color:#92400E; border:1px solid #FCD34D;">${g.label} 💶: <strong>${cnt}</strong></span>`);
+      });
+      elGadgets.innerHTML = rows.join(' ');
+      elGadgetsBox.style.display = rows.length ? '' : 'none';
     }
   }
 
