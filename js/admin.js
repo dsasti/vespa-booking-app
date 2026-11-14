@@ -332,6 +332,14 @@ class VespaAdminDashboard {
       const pkgCleanName = pkg ? pkg.label : modeStr.split('-')[0].trim();
       const pkgLabel = badgeSvg ? `${badgeSvg} ${pkgCleanName}` : `${pkg ? pkg.emoji + ' ' : ''}${pkgCleanName}`;
 
+      // Icone gadget acquistati: quadratino ambra con iniziale in grassetto del nome gadget
+      const gadgetIconsHtml = (Array.isArray(r.gadgetsExtra) ? r.gadgetsExtra : []).map(g => {
+        const cleanName = String(g.name || g.id || '?').replace(/^[^A-Za-z0-9À-ÿ]+/, '').trim();
+        const initial = (cleanName.charAt(0) || '?').toUpperCase();
+        const safeTitle = `${cleanName} (+€ ${g.price || 0})`.replace(/"/g, '&quot;');
+        return `<span title="Gadget acquistato: ${safeTitle}" style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; margin-left:4px; vertical-align:middle; background:#F59E0B; color:#FFFFFF; border:2px solid #B45309; border-radius:50%; font-weight:900; font-size:0.82rem; box-shadow:0 1px 3px rgba(0,0,0,0.3);">${initial}</span>`;
+      }).join('');
+
       return `
         <tr style="background:${rowBg};" class="pkg-row">
           <td style="background:${rowStickyIdBg};"><strong style="color:var(--vespa-blue); font-family:monospace;">${r.id}</strong></td>
@@ -340,7 +348,7 @@ class VespaAdminDashboard {
           </td>
           <td>${r.vespaClub}</td>
           <td><span class="badge badge-info">${r.tagliaTshirt}</span></td>
-          <td><strong>${pkgLabel}</strong> (€ ${price})</td>
+          <td><strong>${pkgLabel}</strong>${gadgetIconsHtml} (€ ${price})</td>
           <td>${payBadge}</td>
 
           <!-- PRESENZA SABATO -->
