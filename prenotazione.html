@@ -391,14 +391,6 @@
               </select>
             </div>
 
-            <!-- PLACCA EVENTO (DINAMICA A FIANCO DELLA CASELLA MAGLIETTE) -->
-            <div class="form-group" id="placcaEventoGroup" style="display:none;">
-              <label for="placcaEventoSelect" id="placcaEventoLabel">🪧 Placca Evento</label>
-              <select id="placcaEventoSelect" onchange="window.updateBookingPriceCalculation()">
-                <option value="NO" selected>NO</option>
-              </select>
-            </div>
-
             <!-- MODALITÀ DI PARTECIPAZIONE & QUOTA (CON MINIATURE BADGE GRAFICHE DEI PACCHETTI) -->
             <div class="form-group full-width">
               <label for="modalitaPartecipazione">Modalità di Partecipazione & Quota <span class="req">*</span></label>
@@ -1090,18 +1082,6 @@
       }
     });
 
-    // Includi la Placca Evento se attiva e selezionata su "SI"
-    const placcaGroup = document.getElementById('placcaEventoGroup');
-    const placcaSelect = document.getElementById('placcaEventoSelect');
-    if (placcaGroup && placcaGroup.style.display !== 'none' && placcaSelect && placcaSelect.value === 'SI') {
-      const opt = placcaSelect.options[placcaSelect.selectedIndex];
-      const p = parseInt(opt?.getAttribute('data-price'), 10) || 0;
-      const gId = opt?.getAttribute('data-id') || 'gadget_targa';
-      const gName = opt?.getAttribute('data-name') || 'Placca Evento';
-      gadgetsExtraPrice += p;
-      selectedPaidGadgets.push({ id: gId, name: gName, price: p });
-    }
-
     const totalPrice = packagePrice + gadgetsExtraPrice;
 
     // Aggiorna l'interfaccia riassuntiva dei prezzi
@@ -1145,38 +1125,13 @@
 
         const activeGadgets = gadgets.filter(g => g.active !== false);
 
-        // 0. Gestione Placca Evento a fianco della casella magliette
-        const placcaGadget = activeGadgets.find(g => g.id === 'gadget_targa' || /placca|targa|diploma/i.test(g.label || ''));
-        const placcaGroup = document.getElementById('placcaEventoGroup');
-        const placcaLabel = document.getElementById('placcaEventoLabel');
-        const placcaSelect = document.getElementById('placcaEventoSelect');
-        if (placcaGroup && placcaSelect) {
-          if (placcaGadget) {
-            placcaGroup.style.display = '';
-            if (placcaLabel) placcaLabel.textContent = placcaGadget.label || '🪧 Placca Evento';
-            const prevVal = placcaSelect.value || 'NO';
-            const isPaid = placcaGadget.isPaid === true && (parseInt(placcaGadget.price, 10) > 0);
-            const price = parseInt(placcaGadget.price, 10) || 0;
-            const safeName = (placcaGadget.label || 'Placca Evento').replace(/"/g, '&quot;');
-            const siText = isPaid ? `SÌ A PAGAMENTO € ${price}` : 'SÌ (Inclusa / Gratuita)';
-            placcaSelect.innerHTML =
-              `<option value="NO">NO</option>` +
-              `<option value="SI" data-id="${placcaGadget.id || 'gadget_targa'}" data-name="${safeName}" data-price="${isPaid ? price : 0}">${siText}</option>`;
-            placcaSelect.value = (prevVal === 'SI') ? 'SI' : 'NO';
-          } else {
-            placcaGroup.style.display = 'none';
-            placcaSelect.value = 'NO';
-          }
-        }
-
-        // 1. Popola la sezione sequenziale dei Gadget Attivi (escludendo la placca già mostrata sopra)
-        const listGadgets = activeGadgets.filter(g => !placcaGadget || g.id !== placcaGadget.id);
+        // 1. Popola la sezione sequenziale dei Gadget Attivi
         const sectionEl = document.getElementById('eventGadgetsSection');
         const listEl = document.getElementById('eventGadgetsList');
         if (sectionEl && listEl) {
-          if (listGadgets.length > 0) {
+          if (activeGadgets.length > 0) {
             sectionEl.style.display = 'block';
-            listEl.innerHTML = listGadgets.map((g, idx) => {
+            listEl.innerHTML = activeGadgets.map((g, idx) => {
               const isPaid = g.isPaid === true && (parseInt(g.price, 10) > 0);
               const price = parseInt(g.price, 10) || 0;
               const safeName = g.label.replace(/"/g, '&quot;');
@@ -1186,7 +1141,7 @@
                 return `
                   <div style="background:#FFFBEB; border:1.5px solid #FCD34D; border-radius:10px; padding:0.75rem 1rem; display:flex; justify-content:space-between; align-items:center; gap:0.75rem; flex-wrap:wrap;">
                     <div style="display:flex; align-items:center; gap:0.6rem; min-width:200px;">
-                      <input type="checkbox" id="gadget_opt_${g.id || idx}" class="gadget-paid-checkbox" value="${g.id || idx}" data-name="${safeName}" data-price="${price}" onchange="window.updateBookingPriceCalculation()" style="width:18px; height:18px; cursor:pointer; accent-color:#D97706;">
+                      <input type="checkbox" id="gadget_opt_${g.id || idx}" class="gadget-paid-checkbox" value="${g.id || idx}" data-name="${safeName}" data-price="${price}" onchange="window.updateBookingPriceCalculation()" style="width:26px; height:26px; min-width:26px; cursor:pointer; accent-color:#D97706; box-shadow:0 0 0 2px #F59E0B; border-radius:4px;">
                       <label for="gadget_opt_${g.id || idx}" style="cursor:pointer; margin:0;">
                         <span style="font-weight:800; font-size:0.95rem; color:#92400E;">${g.label}</span>
                         ${desc}
