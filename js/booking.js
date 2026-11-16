@@ -123,6 +123,9 @@ class VespaBookingForm {
     setVal('email', record.email);
     setVal('telefono', record.telefono);
     setVal('ruolo', record.ruolo || 'CONDUCENTE');
+    if (typeof window.toggleVespaFieldsByRole === 'function') {
+      window.toggleVespaFieldsByRole();
+    }
     setVal('modelloVespa', record.modelloVespa);
     setVal('annoVespa', record.annoVespa || '1980');
     setVal('tagliaTshirt', record.tagliaTshirt || 'L');
@@ -293,8 +296,8 @@ class VespaBookingForm {
         email: (document.getElementById('email')?.value || '').trim(),
         telefono: (document.getElementById('telefono')?.value || '').trim(),
         ruolo: document.getElementById('ruolo')?.value || 'CONDUCENTE',
-        modelloVespa: (document.getElementById('modelloVespa')?.value || '').trim(),
-        annoVespa: document.getElementById('annoVespa')?.value || '1980',
+        modelloVespa: (document.getElementById('ruolo')?.value === 'PASSEGGERO') ? '' : (document.getElementById('modelloVespa')?.value || '').trim(),
+        annoVespa: (document.getElementById('ruolo')?.value === 'PASSEGGERO') ? '' : (document.getElementById('annoVespa')?.value || '1980'),
         tagliaTshirt: (document.getElementById('tagliaTshirt')?.disabled) ? '' : (document.getElementById('tagliaTshirt')?.value || 'L'),
         modalitaPartecipazione: document.getElementById('modalitaPartecipazione')?.value,
         gadgetsExtra: (function() {
@@ -400,17 +403,4 @@ class VespaBookingForm {
       this.isSubmitting = false;
       if (submitBtn) {
         submitBtn.disabled = false;
-        submitBtn.textContent = '🚀 Conferma e Invia Registrazione Online';
-        submitBtn.style.background = '';
-      }
-    }
-  }
-
-  submitRegistration() {
-    return this.submitForm();
-  }
-}
-
-window.vespaBookingForm = new VespaBookingForm();
-window.vespaBooking = window.vespaBookingForm;
-
+        submitBtn.textContent = '🚀 Conferma e Invia
