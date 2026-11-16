@@ -116,6 +116,28 @@ const DEFAULT_SERVICES_LABELS = {
 };
 
 const SERVICES_LABELS_KEY = 'vespa_services_labels_config';
+const ACTIVE_SERVICES_KEYS_STORAGE = 'vespa_active_services_keys';
+
+function getActiveServiceKeys() {
+  try {
+    const raw = localStorage.getItem(ACTIVE_SERVICES_KEYS_STORAGE);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {}
+  return Object.keys(SERVICE_DB_FIELDS);
+}
+
+function saveActiveServiceKeys(keysArr) {
+  try {
+    localStorage.setItem(ACTIVE_SERVICES_KEYS_STORAGE, JSON.stringify(keysArr));
+    localStorage.setItem(ACTIVE_SERVICES_KEYS_STORAGE + '_pulse', Date.now().toString());
+    if (window.vespaDB && typeof window.vespaDB.saveAppConfig === 'function') {
+      window.vespaDB.saveAppConfig(ACTIVE_SERVICES_KEYS_STORAGE, keysArr);
+    }
+  } catch (e) {}
+}
 
 function loadServicesLabelsConfig() {
   try {
@@ -384,7 +406,7 @@ window.vespaPackagesUI = {
       this._workingPackages = loadPackagesConfig();
     }
     const packages = this._workingPackages;
-    const allServiceKeys = Object.keys(SERVICE_DB_FIELDS);
+    const allServiceKeys = getActiveServiceKeys();
     const serviceLabels = loadServicesLabelsConfig();
 
     let packagesHtml = packages.map((pkg, idx) => {
@@ -507,7 +529,7 @@ window.vespaPackagesUI = {
   renderServicesLabelsEditor() {
     const container = document.getElementById('servicesLabelsConfigContainer');
     if (!container) return;
-    const allServiceKeys = Object.keys(SERVICE_DB_FIELDS);
+    const allServiceKeys = getActiveServiceKeys();
     const serviceLabels = loadServicesLabelsConfig();
 
     let html = '<div style="background:#F8FAFC; border:1.5px solid #CBD5E1; border-radius:12px; padding:1.25rem; margin-top:1.5rem;">' +
@@ -517,25 +539,63 @@ window.vespaPackagesUI = {
             '🏷️ Modifica Nomi dei Servizi Inclusi' +
           '</h3>' +
           '<p style="margin:3px 0 0 0; font-size:0.78rem; color:var(--text-muted);">' +
-            'Personalizza le etichette dei pasti, gadget e servizi mostrati nelle caselle dei pacchetti e in tutta l\'app.' +
+            'Personalizza le etichette, aggiungi nuovi servizi o rimuovi quelli presenti (poi clicca Salva tutto).' +
           '</p>' +
         '</div>' +
-        '<button type="button" onclick="window.vespaPackagesUI.resetServicesLabelsToDefault()" class="btn btn-sm" style="background:transparent; border:1px solid #CBD5E1; color:#64748B; font-size:0.75rem; font-weight:700; cursor:pointer;">' +
-          'Ripristina Nomi Default' +
-        '</button>' +
+        '<div style="display:flex; gap:0.45rem; flex-wrap:wrap;">' +
+          '<button type="button" onclick="window.openEmojiPickerModal && window.openEmojiPickerModal()" class="btn btn-sm" style="background:#EFF6FF; color:#1D4ED8; border:1px solid #93C5FD; font-size:0.75rem; font-weight:800; cursor:pointer;">🎨 Mini-Icone (Emoji)</button>' +
+          '<button type="button" onclick="window.vespaPackagesUI.addService()" class="btn btn-sm" style="background:#DCFCE7; color:#15803D; border:1px solid #86EFAC; font-size:0.75rem; font-weight:800; cursor:pointer;">➕ Aggiungi Servizio</button>' +
+          '<button type="button" onclick="window.vespaPackagesUI.resetServicesLabelsToDefault()" class="btn btn-sm" style="background:transparent; border:1px solid #CBD5E1; color:#64748B; font-size:0.75rem; font-weight:700; cursor:pointer;">↺ Ripristina Default</button>' +
+        '</div>' +
       '</div>' +
       '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:0.75rem;">';
 
     allServiceKeys.forEach(sKey => {
       const currentVal = serviceLabels[sKey] || (SERVICE_DB_FIELDS[sKey] && SERVICE_DB_FIELDS[sKey].label) || sKey;
       html += '<div style="background:#FFF; border:1px solid #E2E8F0; border-radius:8px; padding:0.5rem 0.75rem;">' +
-        '<label style="font-size:0.72rem; font-weight:800; color:#64748B; text-transform:uppercase; display:block; margin-bottom:0.25rem;">' + sKey + '</label>' +
+        '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.25rem;">' +
+          '<label style="font-size:0.72rem; font-weight:800; color:#64748B; text-transform:uppercase; margin:0;">' + sKey + '</label>' +
+          '<button type="button" onclick="window.vespaPackagesUI.removeService(\'' + sKey + '\')" title="Rimuovi questo servizio" style="background:#FEE2E2; color:#B91C1C; border:1px solid #FCA5A5; border-radius:5px; font-size:0.7rem; font-weight:800; padding:0.1rem 0.4rem; cursor:pointer;">🗑️</button>' +
+        '</div>' +
         '<input type="text" id="svc-label-input-' + sKey + '" value="' + currentVal.replace(/"/g, '&quot;') + '" style="width:100%; padding:0.35rem 0.5rem; border:1.5px solid #CBD5E1; border-radius:6px; font-size:0.85rem; font-weight:700; color:#1E293B; box-sizing:border-box;">' +
       '</div>';
     });
 
     html += '</div></div>';
     container.innerHTML = html;
+  },
+
+  addService() {
+    this.collectCurrentUIState();
+    const keys = getActiveServiceKeys();
+    const newKey = 'svc_' + Date.now().toString().slice(-4);
+    const labels = loadServicesLabelsConfig();
+    labels[newKey] = '✨ Nuovo Servizio';
+    keys.push(newKey);
+    saveServicesLabelsConfig(labels);
+    saveActiveServiceKeys(keys);
+    this.render();
+    const inp = document.getElementById('svc-label-input-' + newKey);
+    if (inp) { inp.focus(); inp.select(); }
+  },
+
+  removeService(sKey) {
+    const keys = getActiveServiceKeys();
+    if (keys.length <= 1) {
+      alert('Deve rimanere almeno un servizio.');
+      return;
+    }
+    this.collectCurrentUIState();
+    const nextKeys = keys.filter(k => k !== sKey);
+    saveActiveServiceKeys(nextKeys);
+    if (this._workingPackages) {
+      this._workingPackages.forEach(pkg => {
+        if (Array.isArray(pkg.services)) {
+          pkg.services = pkg.services.filter(s => s !== sKey);
+        }
+      });
+    }
+    this.render();
   },
 
   updateBadgePreview(id, idx) {
@@ -568,7 +628,7 @@ window.vespaPackagesUI = {
       const el = document.getElementById('pkg-domenica-' + pkg.id);
       if (el) pkg.includesDomenica = el.checked;
     } else if (field === 'services') {
-      const allServiceKeys = Object.keys(SERVICE_DB_FIELDS);
+      const allServiceKeys = getActiveServiceKeys();
       pkg.services = allServiceKeys.filter(sKey => {
         const cb = document.getElementById('pkg-svc-' + pkg.id + '-' + sKey);
         return cb ? cb.checked : false;
@@ -619,18 +679,18 @@ window.vespaPackagesUI = {
   },
 
   resetServicesLabelsToDefault() {
-    if (!confirm('Ripristinare i nomi default per tutti i servizi?')) return;
+    if (!confirm('Ripristinare i nomi e l\'elenco default dei servizi?')) return;
     saveServicesLabelsConfig(DEFAULT_SERVICES_LABELS);
-    this.renderServicesLabelsEditor();
+    saveActiveServiceKeys(Object.keys(SERVICE_DB_FIELDS));
     this.render();
     if (window.app && window.app.showToast) {
-      window.app.showToast('↺ Nomi servizi ripristinati ai valori di default.', 'info');
+      window.app.showToast('↺ Servizi ripristinati ai valori di default.', 'info');
     }
   },
 
   collectCurrentUIState() {
     if (!this._workingPackages) return;
-    const allServiceKeys = Object.keys(SERVICE_DB_FIELDS);
+    const allServiceKeys = getActiveServiceKeys();
 
     this._workingPackages.forEach((pkg, idx) => {
       const codeEl = document.getElementById('pkg-code-' + pkg.id);
@@ -698,17 +758,15 @@ window.vespaPackagesUI = {
     this.collectCurrentUIState();
     if (!this._workingPackages) this._workingPackages = loadPackagesConfig();
 
-    const allServiceKeys = Object.keys(SERVICE_DB_FIELDS);
-    const newLabels = {};
+    const allServiceKeys = getActiveServiceKeys();
+    const newLabels = loadServicesLabelsConfig();
     allServiceKeys.forEach(sKey => {
       const inp = document.getElementById('svc-label-input-' + sKey);
       if (inp && inp.value.trim()) {
         newLabels[sKey] = inp.value.trim();
       }
     });
-    if (Object.keys(newLabels).length > 0) {
-      saveServicesLabelsConfig(newLabels);
-    }
+    saveServicesLabelsConfig(newLabels);
 
     savePackagesConfig(this._workingPackages);
     this.render();
@@ -732,3 +790,68 @@ if (typeof document !== 'undefined') {
     }
   });
 }
+
+// ============================================================
+// MODALE SELETTORE MINI-ICONE (EMOJI) PER COPIA RAPIDA
+// ============================================================
+window.openEmojiPickerModal = function() {
+  if (typeof document === 'undefined') return;
+  let modal = document.getElementById('vespaEmojiPickerModal');
+  if (!modal) {
+    const groups = [
+      { title: '🛵 Raduno & Motori', items: ['🛵', '🏍️', '🏁', '🔧', '⚙️', '⛽', '🛣️', '🗺️', '📍', '🧭', '🚨', '🏆', '🥇', '🥈', '🥉', '👑'] },
+      { title: '🍽️ Cibo & Bevande', items: ['🥐', '☕', '🧁', '🍰', '🍹', '🍸', '🍷', '🍺', '🥂', '🍕', '🍝', '🥗', '🍔', '🥪', '🍽️', '🍴', '🧊', '🍾'] },
+      { title: '🎁 Gadget & Premi', items: ['🎁', '👕', '🧢', '👜', '🎒', '🏅', '📌', '🪧', '🎫', '🎟️', '🔖', '🏷️', '✨', '🎉', '🎊', '🎈'] },
+      { title: '📅 Date, Soldi & Simboli', items: ['📅', '🌙', '☀️', '⏰', '💶', '💳', '🏦', '✅', '✔', '❌', '⚠️', 'ℹ️', '📢', '🔥', '⭐', '❤️'] }
+    ];
+    modal = document.createElement('div');
+    modal.id = 'vespaEmojiPickerModal';
+    modal.style.cssText = 'position:fixed; inset:0; z-index:99999; background:rgba(15,23,42,0.7); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; padding:1rem;';
+    modal.innerHTML =
+      '<div style="background:#FFF; width:100%; max-width:520px; border-radius:16px; box-shadow:0 20px 45px rgba(0,0,0,0.35); border:2px solid #005A9C; overflow:hidden; max-height:88vh; display:flex; flex-direction:column;">' +
+        '<div style="background:linear-gradient(135deg,#005A9C,#003E6B); color:#FFF; padding:1rem 1.25rem; display:flex; justify-content:space-between; align-items:center;">' +
+          '<div>' +
+            '<div style="font-weight:900; font-size:1.05rem;">🎨 Elenco Mini-Icone (Emoji)</div>' +
+            '<div style="font-size:0.78rem; opacity:0.9;">Clicca su una mini-icona per copiarla negli appunti</div>' +
+          '</div>' +
+          '<button type="button" onclick="document.getElementById(\'vespaEmojiPickerModal\').style.display=\'none\'" style="background:rgba(255,255,255,0.2); color:#FFF; border:none; border-radius:50%; width:32px; height:32px; font-size:1rem; cursor:pointer;">✕</button>' +
+        '</div>' +
+        '<div style="padding:1rem 1.25rem; overflow-y:auto; display:flex; flex-direction:column; gap:1rem;">' +
+          groups.map(g =>
+            '<div>' +
+              '<div style="font-size:0.78rem; font-weight:800; color:#475569; text-transform:uppercase; margin-bottom:0.45rem;">' + g.title + '</div>' +
+              '<div style="display:flex; flex-wrap:wrap; gap:0.4rem;">' +
+                g.items.map(em =>
+                  '<button type="button" onclick="window.copyVespaEmoji(\'' + em + '\')" style="font-size:1.45rem; width:42px; height:42px; border:1.5px solid #E2E8F0; border-radius:8px; background:#F8FAFC; cursor:pointer; display:flex; align-items:center; justify-content:center;" title="Copia ' + em + '">' + em + '</button>'
+                ).join('') +
+              '</div>' +
+            '</div>'
+          ).join('') +
+        '</div>' +
+      '</div>';
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
+    document.body.appendChild(modal);
+  }
+  modal.style.display = 'flex';
+};
+
+window.copyVespaEmoji = function(em) {
+  const done = () => {
+    if (window.app && typeof window.app.showToast === 'function') {
+      window.app.showToast('✅ Mini-icona copiata: ' + em + ' — incolla dove vuoi (Ctrl+V)', 'success');
+    } else {
+      alert('Copiata: ' + em);
+    }
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(em).then(done).catch(done);
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = em;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    ta.remove();
+    done();
+  }
+};
