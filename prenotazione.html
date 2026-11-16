@@ -391,21 +391,14 @@
               </select>
             </div>
 
-            <!-- MODALITÀ DI PARTECIPAZIONE & QUOTA (CON MINIATURE BADGE GRAFICHE DEI PACCHETTI) -->
+            <!-- MODALITÀ DI PARTECIPAZIONE & QUOTA (ELENCO A DISCESA + ANTEPRIMA SERVIZI) -->
             <div class="form-group full-width">
               <label for="modalitaPartecipazione">Modalità di Partecipazione & Quota <span class="req">*</span></label>
-              
-              <!-- Selettore Visivo con Miniature Badge SVG dei Pacchetti Creati nella Dashboard -->
-              <div id="packageCardsGrid" class="packages-selection-grid">
-                <!-- Generato dinamicamente con miniature badge SVG, titolo e quota -->
-              </div>
-
-              <!-- Select nativo mantenuto sincronizzato (accessibilità, mobile e fallback form) -->
-              <select id="modalitaPartecipazione" required style="display:none;" onchange="syncPackageCardsFromSelect(); renderPackageBadgePreview();">
+              <select id="modalitaPartecipazione" required style="font-size:1.02rem; font-weight:800; color:var(--vespa-blue-dark);" onchange="renderPackageBadgePreview(); if(typeof window.updateBookingPriceCalculation==='function') window.updateBookingPriceCalculation();">
                 <option value="">⏳ Caricamento pacchetti...</option>
               </select>
 
-              <!-- Dettaglio Servizi Inclusi nel Pacchetto Selezionato -->
+              <!-- Dettaglio Servizi e Gadget Inclusi nel Pacchetto Selezionato -->
               <div id="packageBadgePreview" style="margin-top:0.75rem;"></div>
             </div>
 
@@ -817,10 +810,11 @@
         return;
       }
 
-      // 1. Popola il select sottostante
+      // 1. Popola il select a discesa
       const previouslySelected = sel.value;
       sel.innerHTML = active.map(pkg => {
-        return `<option value="${pkg.id}|${pkg.label} - € ${pkg.price}">${pkg.label} — € ${pkg.price}</option>`;
+        const badgeCode = pkg.code ? `[${pkg.code}] ` : '';
+        return `<option value="${pkg.id}|${pkg.label} - € ${pkg.price}">${badgeCode}${pkg.label} — € ${pkg.price}</option>`;
       }).join('');
 
       // Mantieni selezione precedente se valida, altrimenti seleziona il primo
