@@ -205,16 +205,19 @@ class VespaScanner {
 
     try {
       if (!this.html5QrCode) {
-        this.html5QrCode = new Html5Qrcode("reader");
+        var html5Config = { useBarCodeDetectorIfSupported: false };
+        if (typeof Html5QrcodeSupportedFormats !== "undefined") {
+          html5Config.formatsToSupport = [Html5QrcodeSupportedFormats.QR_CODE];
+        }
+        this.html5QrCode = new Html5Qrcode("reader", html5Config);
       }
 
       var scanConfig = {
-        fps: 20,
+        fps: 15,
         qrbox: function(w, h) {
-          var edge = Math.floor(Math.min(w, h) * 0.85);
-          return { width: Math.max(edge, 160), height: Math.max(edge, 160) };
-        },
-        aspectRatio: 1.33
+          var edge = Math.floor(Math.min(w, h) * 0.78);
+          return { width: Math.max(edge, 150), height: Math.max(edge, 150) };
+        }
       };
 
       var onScanSuccess = function(decodedText) {
@@ -245,6 +248,13 @@ class VespaScanner {
 
       this.isScanning = true;
       if (toggleBtn) toggleBtn.style.display = "none"; // Nascondi completamente barra comandi se attiva
+
+      // Fix iOS Safari: assicura attributi playsinline e muted sul video stream
+      var vid = readerDiv.querySelector("video");
+      if (vid) {
+        vid.setAttribute("playsinline", "true");
+        vid.setAttribute("muted", "true");
+      }
 
     } catch(err) {
       console.warn("[VespaScanner] Avvio fotocamera in attesa di tocco:", err);
