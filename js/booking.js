@@ -139,6 +139,13 @@ class VespaBookingForm {
     document.querySelectorAll('.gadget-paid-checkbox').forEach(cb => {
       cb.checked = savedGadgets.includes(cb.value) || savedGadgets.includes(cb.getAttribute('data-name'));
     });
+    const placcaSel = document.getElementById('placcaEventoSelect');
+    if (placcaSel) {
+      const siOpt = Array.from(placcaSel.options).find(o => o.value === 'SI');
+      const placcaId = siOpt?.getAttribute('data-id') || 'gadget_targa';
+      const placcaName = siOpt?.getAttribute('data-name') || '';
+      placcaSel.value = (savedGadgets.includes(placcaId) || (placcaName && savedGadgets.includes(placcaName))) ? 'SI' : 'NO';
+    }
     if (typeof window.updateBookingPriceCalculation === 'function') {
       window.updateBookingPriceCalculation();
     }
@@ -298,6 +305,9 @@ class VespaBookingForm {
         tagliaTshirt: (document.getElementById('tagliaTshirt')?.disabled) ? '' : (document.getElementById('tagliaTshirt')?.value || 'L'),
         modalitaPartecipazione: document.getElementById('modalitaPartecipazione')?.value,
         gadgetsExtra: (function() {
+          if (typeof window.updateBookingPriceCalculation === 'function') {
+            return window.updateBookingPriceCalculation().selectedPaidGadgets || [];
+          }
           const selectedPaidGadgets = [];
           document.querySelectorAll('.gadget-paid-checkbox').forEach(cb => {
             if (cb.checked) {
