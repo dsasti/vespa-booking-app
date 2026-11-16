@@ -266,14 +266,14 @@
             <!-- RUOLO -->
             <div class="form-group">
               <label for="ruolo">Ruolo Partecipante <span class="req">*</span></label>
-              <select id="ruolo" required>
+              <select id="ruolo" required onchange="window.toggleVespaFieldsByRole && window.toggleVespaFieldsByRole()">
                 <option value="CONDUCENTE">CONDUCENTE</option>
                 <option value="PASSEGGERO">PASSEGGERO</option>
               </select>
             </div>
 
             <!-- MODELLO VESPA -->
-            <div class="form-group">
+            <div class="form-group" id="modelloVespaGroup">
               <label for="modelloVespa">Modello Vespa <span class="req">*</span></label>
               <input type="text" id="modelloVespa" required placeholder="Es. Vespa 125 Primavera ET3" list="vespaModelList" autocomplete="off">
               <datalist id="vespaModelList">
@@ -373,7 +373,7 @@
             </div>
 
             <!-- ANNO VESPA -->
-            <div class="form-group">
+            <div class="form-group" id="annoVespaGroup">
               <label for="annoVespa">Anno Vespa <span class="req">*</span></label>
               <input type="number" id="annoVespa" required min="1946" max="2026" placeholder="Es. 1978">
             </div>
@@ -417,20 +417,20 @@
             </div>
 
             <!-- SEZIONE RIEPILOGO TOTALE ISCRIZIONE CON DETTAGLIO GADGET A PAGAMENTO -->
-            <div class="form-group full-width" id="bookingPriceSummaryBox" style="margin-top:0.25rem;">
-              <div style="background:linear-gradient(135deg,#F0FDF4 0%,#DCFCE7 100%); border:2px solid #86EFAC; border-radius:12px; padding:1.1rem 1.35rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; box-shadow:0 3px 8px rgba(22,163,74,0.08);">
+            <div class="form-group full-width" id="bookingPriceSummaryBox" style="margin-top:1.75rem; padding-top:1.25rem; border-top:2px dashed #CBD5E1;">
+              <div style="background:linear-gradient(135deg,#1E3A8A 0%,#1D4ED8 100%); border:2.5px solid #1E40AF; border-radius:14px; padding:1.35rem 1.6rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; box-shadow:0 8px 20px rgba(30,58,138,0.22); color:#FFFFFF;">
                 <div>
-                  <div style="font-size:0.78rem; font-weight:800; color:#15803D; text-transform:uppercase; letter-spacing:0.5px;">
+                  <div style="font-size:0.95rem; font-weight:900; color:#DBEAFE; text-transform:uppercase; letter-spacing:0.6px;">
                     💳 Totale Complessivo Iscrizione &amp; Quota
                   </div>
-                  <div id="priceBreakdownText" style="font-size:0.88rem; color:#166534; margin-top:0.35rem; line-height:1.45;">
-                    Quota Raduno: <strong>€ <span id="summaryPricePackage">55</span></strong>
-                    <span id="summaryGadgetsBreakdownWrap" style="display:none;"> • Gadget Aggiuntivi: <strong>+€ <span id="summaryPriceGadgets">0</span></strong></span>
+                  <div id="priceBreakdownText" style="font-size:1.05rem; color:#EFF6FF; margin-top:0.45rem; line-height:1.5;">
+                    Quota Raduno: <strong style="color:#FFFFFF;">€ <span id="summaryPricePackage">55</span></strong>
+                    <span id="summaryGadgetsBreakdownWrap" style="display:none;"> • Gadget Aggiuntivi: <strong style="color:#FDE047;">+€ <span id="summaryPriceGadgets">0</span></strong></span>
                   </div>
                 </div>
                 <div style="text-align:right;">
-                  <span style="font-size:0.8rem; font-weight:700; color:#15803D; display:block;">Importo da Versare</span>
-                  <div style="font-size:1.6rem; font-weight:900; color:#14532D; line-height:1.1;">
+                  <span style="font-size:0.9rem; font-weight:800; color:#BFDBFE; display:block; text-transform:uppercase;">Importo da Versare</span>
+                  <div style="font-size:2.15rem; font-weight:900; color:#FFFFFF; line-height:1.1; margin-top:0.15rem;">
                     € <span id="summaryPriceTotal">55</span>
                   </div>
                 </div>
@@ -1240,6 +1240,31 @@
   })();
   </script>
   <script>
+  /**
+   * Mostra o nasconde Modello Vespa e Anno Vespa in base al ruolo:
+   * se PASSEGGERO, i due campi vengono nascosti e disabilitati.
+   */
+  window.toggleVespaFieldsByRole = function() {
+    const ruoloEl = document.getElementById('ruolo');
+    const isPassenger = (ruoloEl && ruoloEl.value === 'PASSEGGERO');
+    const modGroup = document.getElementById('modelloVespaGroup');
+    const annoGroup = document.getElementById('annoVespaGroup');
+    const modInput = document.getElementById('modelloVespa');
+    const annoInput = document.getElementById('annoVespa');
+
+    if (modGroup) modGroup.style.display = isPassenger ? 'none' : '';
+    if (annoGroup) annoGroup.style.display = isPassenger ? 'none' : '';
+    if (modInput) {
+      modInput.disabled = isPassenger;
+      modInput.required = !isPassenger;
+    }
+    if (annoInput) {
+      annoInput.disabled = isPassenger;
+      annoInput.required = !isPassenger;
+    }
+  };
+  document.addEventListener('DOMContentLoaded', window.toggleVespaFieldsByRole);
+
   /**
    * RICERCA ONLINE IN TEMPO REALE CON AUTOCOMPLETE STILE GOOGLE
    * Per Vespa Club e Città di Provenienza.
