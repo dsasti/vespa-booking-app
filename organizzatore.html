@@ -76,6 +76,7 @@
               </div>
             </div>
             <div style="display:flex; align-items:center; gap:0.75rem;">
+              <button class="btn btn-sm" onclick="event.stopPropagation(); window.openEmojiPickerModal && window.openEmojiPickerModal();" style="background:rgba(255,255,255,0.16); color:#FFF; border:1.5px solid rgba(255,255,255,0.45); font-weight:800; white-space:nowrap;" title="Apri elenco mini-icone da copiare">🎨 Mini-Icone</button>
               <button class="btn btn-sm" onclick="event.stopPropagation(); window.vespaPackagesUI.saveConfig(); window.vespaAdmin.savePaymentConfig(); window.vespaAdmin.saveEventConfig(); window.vespaAdmin.saveGadgetConfig();" style="background:rgba(255,255,255,0.2); color:#FFF; border:1.5px solid rgba(255,255,255,0.5); font-weight:800; white-space:nowrap;">💾 Salva tutto</button>
               <span id="configPanelIcon" style="font-size:0.9rem; opacity:0.85;">▼</span>
             </div>
