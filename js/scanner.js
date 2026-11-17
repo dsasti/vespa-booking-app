@@ -365,7 +365,7 @@ class VespaScanner {
         all.map(function(r) {
           var accInfo = self.checkParticipantAcceptedForService(r, mode);
           var accBadge = accInfo.passed ? " [✅ Accettato]" : " [⏳ Non ancora in Accettazione]";
-          return "<option value=\"" + r.id + "\">" + r.cognome + " " + r.nome + " (" + (r.vespaClub || 'Indipendente') + ") — " + r.id + accBadge + "</option>";
+          return "<option value=\"" + r.id + "\">" + r.cognome + " " + r.nome + accBadge + "</option>";
         }).join("");
       select.onchange = function() {
         if (select.value) {
