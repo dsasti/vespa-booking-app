@@ -2404,12 +2404,28 @@ const DEFAULT_EVENT_DAYS = [
   { id: 'giorno_2', code: 'DOMENICA', name: 'Domenica', date: 'Domenica 21 Settembre 2026', icon: '☀️' }
 ];
 
+const DEFAULT_PRIVACY_POLICY_TEXT =
+  "INFORMATIVA SUL TRATTAMENTO DEI DATI PERSONALI (Art. 13 Regolamento UE 2016/679 - GDPR)\n\n" +
+  "1. Titolare del trattamento: Il Vespa Club organizzatore dell'evento, indicato nell'intestazione del modulo di prenotazione.\n" +
+  "2. Dati raccolti e finalità: I dati conferiti (cognome, nome, data di nascita, città di provenienza, email, telefono, Vespa Club di appartenenza, numeri di tessera VCI/Motornext, modello e anno del veicolo, taglia abbigliamento, eventuale ricevuta di pagamento e scelte di partecipazione) sono trattati esclusivamente per:\n" +
+  "   - gestire l'iscrizione, il pagamento della quota e l'emissione del Pass QR Code;\n" +
+  "   - verificare l'accredito all'accettazione, la consegna dei gadget e la fruizione dei servizi/pasti;\n" +
+  "   - elaborare le classifiche del raduno (Vespa più vecchia, provenienza per distanza, classifica Club).\n" +
+  "3. Modalità e conservazione: I dati sono trattati in formato elettronico su archivio locale e cloud protetto e conservati per il tempo necessario alla gestione dell'evento e agli adempimenti organizzativi e fiscali.\n" +
+  "4. Diritti dell'interessato: In qualsiasi momento puoi richiedere l'accesso, la rettifica o la cancellazione dei tuoi dati contattando direttamente il Vespa Club organizzatore.";
+
+VespaAdminDashboard.prototype.resetPrivacyTextDefault = function() {
+  const el = document.getElementById('eventConfigPrivacyText');
+  if (el) el.value = DEFAULT_PRIVACY_POLICY_TEXT;
+};
+
 VespaAdminDashboard.prototype.loadEventConfig = function() {
   try {
     const raw = localStorage.getItem(VESPA_EVENT_CONFIG_KEY);
     const cfg = raw ? JSON.parse(raw) : {};
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
     set('eventConfigNomeBreve',      cfg.nomeBreve    || '');
+    set('eventConfigPrivacyText',    cfg.privacyText  || DEFAULT_PRIVACY_POLICY_TEXT);
     set('eventConfigOrganizzazione', cfg.organizzazione || '');
     set('eventConfigDescrizione',    cfg.descrizione  || '');
     set('eventConfigDataSabato',     cfg.dataSabato   || '');
@@ -2646,6 +2662,7 @@ VespaAdminDashboard.prototype.saveEventConfig = function() {
       nomeBreve:      get('eventConfigNomeBreve', existing.nomeBreve),
       organizzazione: get('eventConfigOrganizzazione', existing.organizzazione),
       descrizione:    get('eventConfigDescrizione', existing.descrizione),
+      privacyText:    get('eventConfigPrivacyText', existing.privacyText || DEFAULT_PRIVACY_POLICY_TEXT),
       dataSabato:     firstDay,
       dataDomenica:   secondDay,
       giorni:         this._eventDays || existing.giorni || DEFAULT_EVENT_DAYS,
