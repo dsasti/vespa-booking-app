@@ -811,6 +811,15 @@
             });
           }
 
+          // Escludi chi è già stato accettato per il giorno attivo
+          all = all.filter(function(r) {
+            if (dayCode === 'SABATO' || dayCode === 'GIORNO_1') return !r.statoAccettazioneSabato;
+            if (dayCode === 'DOMENICA' || dayCode === 'GIORNO_2') return !r.statoAccettazioneDomenica;
+            if (dayCode && r.accettazionePerGiorno && r.accettazionePerGiorno[dayCode]) return false;
+            if (!dayCode) return !(r.accettazioneConclusa || r.statoAccettazioneSabato || r.statoAccettazioneDomenica);
+            return true;
+          });
+
           all.sort(function(a, b) {
             return (a.cognome + ' ' + a.nome).localeCompare(b.cognome + ' ' + b.nome);
           });
