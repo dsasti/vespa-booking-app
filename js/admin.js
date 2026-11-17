@@ -552,6 +552,31 @@ class VespaAdminDashboard {
     setSelect('editPranzo', record.pranzo || record.pranzoDomenicaErogato);
     setTime('editPranzoTime', record.pranzoTimestamp);
 
+    // Popola i gadget a pagamento attivi nella scheda modifica partecipante
+    const editGadgetsGroup = document.getElementById('editGadgetsExtraGroup');
+    const editGadgetsList = document.getElementById('editGadgetsExtraList');
+    if (editGadgetsGroup && editGadgetsList) {
+      const paidGadgets = (window.VespaGadget ? window.VespaGadget.getActiveGadgets() : [])
+        .filter(g => g.isPaid === true && parseInt(g.price, 10) > 0);
+      if (paidGadgets.length > 0) {
+        const saved = Array.isArray(record.gadgetsExtra) ? record.gadgetsExtra.map(x => x.id || x.name) : [];
+        editGadgetsList.innerHTML = paidGadgets.map((g, idx) => {
+          const p = parseInt(g.price, 10) || 0;
+          const safeName = g.label.replace(/"/g, '&quot;');
+          const checked = saved.includes(g.id) || saved.includes(g.label);
+          return `<label style="display:flex; align-items:center; gap:0.6rem; cursor:pointer; background:#FFF; border:1px solid #FDE68A; padding:0.5rem 0.75rem; border-radius:8px; font-weight:700; color:#92400E;">
+            <input type="checkbox" class="edit-gadget-paid-cb" value="${g.id || idx}" data-name="${safeName}" data-price="${p}" ${checked ? 'checked' : ''} style="width:20px; height:20px; accent-color:#D97706; cursor:pointer;">
+            <span>${g.label}</span>
+            <span style="margin-left:auto; font-weight:900; color:#B45309;">+€ ${p}</span>
+          </label>`;
+        }).join('');
+        editGadgetsGroup.style.display = '';
+      } else {
+        editGadgetsList.innerHTML = '';
+        editGadgetsGroup.style.display = 'none';
+      }
+    }
+
     const payProofContainer = document.getElementById('editPayProofContainer');
     if (payProofContainer) {
       if (record.ricevutaPagamento && record.ricevutaPagamento.data) {
@@ -647,11 +672,25 @@ class VespaAdminDashboard {
       const prevMod = record.modalitaPartecipazione;
       const newMod = modalitaEl ? modalitaEl.value : record.modalitaPartecipazione;
       record.modalitaPartecipazione = newMod;
-      if (modalitaEl && newMod !== prevMod) {
-        record.importoDovuto = window.VespaPkg ? window.VespaPkg.getPriceForRegistration(newMod) : VespaDB.getPriceForMode(newMod);
-      } else {
-        record.importoDovuto = record.importoDovuto || (window.VespaPkg ? window.VespaPkg.getPriceForRegistration(newMod) : VespaDB.getPriceForMode(newMod));
+      // Aggiorna gadget a pagamento selezionati e ricalcola importoDovuto
+      const selectedPaidGadgets = [];
+      let gadgetsSum = 0;
+      document.querySelectorAll('.edit-gadget-paid-cb').forEach(cb => {
+        if (cb.checked) {
+          const p = parseInt(cb.getAttribute('data-price'), 10) || 0;
+          gadgetsSum += p;
+          selectedPaidGadgets.push({
+            id: cb.value,
+            name: cb.getAttribute('data-name') || 'Gadget',
+            price: p
+          });
+        }
+      });
+      if (document.querySelectorAll('.edit-gadget-paid-cb').length > 0) {
+        record.gadgetsExtra = selectedPaidGadgets;
       }
+      const pkgPrice = window.VespaPkg ? window.VespaPkg.getPriceForRegistration(newMod) : VespaDB.getPriceForMode(newMod);
+      record.importoDovuto = pkgPrice + gadgetsSum;
       record.statoPagamento = pagamentoEl ? pagamentoEl.value : record.statoPagamento;
       record.ricevutaPagamentoVerified = (record.statoPagamento === 'PAGATO');
       record.noteOrganizzatore = noteEl ? noteEl.value.trim() : record.noteOrganizzatore;
