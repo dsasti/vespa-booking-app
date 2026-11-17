@@ -825,7 +825,7 @@
 
           select.innerHTML = "<option value=\"\">" + labelText + "</option>" +
             all.map(function(r) {
-              return "<option value=\"" + r.id + "\">" + r.cognome + " " + r.nome + " (" + (r.vespaClub || 'Indipendente') + ") \u2014 " + r.id + "</option>";
+              return "<option value=\"" + r.id + "\">" + r.cognome + " " + r.nome + "</option>";
             }).join("");
 
           select.onchange = function() {
