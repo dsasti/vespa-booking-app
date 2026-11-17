@@ -502,8 +502,22 @@
 
           </div>
 
+          <!-- INFORMATIVA PRIVACY APRIBILE + CONFERMA OBBLIGATORIA -->
+          <div id="privacyConsentBox" style="margin-top:1.75rem; background:#F8FAFC; border:1.5px solid #CBD5E1; border-radius:12px; padding:1rem 1.25rem;">
+            <details id="privacyDetailsBox" style="margin-bottom:0.85rem;">
+              <summary style="cursor:pointer; font-weight:800; font-size:0.95rem; color:var(--vespa-blue-dark); user-select:none; display:flex; align-items:center; gap:0.45rem;">
+                <span>🔒 Leggi l'Informativa sulla Privacy (clicca per aprire / chiudere)</span>
+              </summary>
+              <div id="bookingPrivacyTextContent" style="margin-top:0.75rem; padding:0.9rem 1rem; background:#FFFFFF; border:1px solid #E2E8F0; border-radius:8px; font-size:0.84rem; line-height:1.55; color:#334155; max-height:240px; overflow-y:auto; white-space:pre-wrap;"></div>
+            </details>
+            <label for="privacyConsentCheckbox" style="display:flex; align-items:flex-start; gap:0.65rem; cursor:pointer; font-size:0.92rem; font-weight:700; color:#0F172A; margin:0;">
+              <input type="checkbox" id="privacyConsentCheckbox" required style="width:22px; height:22px; min-width:22px; margin-top:2px; cursor:pointer; accent-color:#005A9C;">
+              <span>Dichiaro di aver letto e compreso l'Informativa sulla Privacy e acconsento al trattamento dei dati personali per la gestione della partecipazione all'evento. <span class="req">*</span></span>
+            </label>
+          </div>
+
           <!-- BOTTOM ACTION BUTTONS -->
-          <div style="margin-top:2rem; display:flex; justify-content:center;">
+          <div style="margin-top:1.5rem; display:flex; justify-content:center;">
             <button type="submit" id="submitBookingBtn" class="btn btn-primary" style="font-size:1.15rem; padding:0.85rem 2.8rem; font-weight:900;">
               🚀 Conferma e Invia Registrazione Online
             </button>
@@ -964,6 +978,12 @@
           cardSubtitle.textContent = cfg.descrizione.trim();
         }
 
+        // 2b. Testo Informativa Privacy
+        const privacyEl = document.getElementById('bookingPrivacyTextContent');
+        if (privacyEl && cfg.privacyText && cfg.privacyText.trim()) {
+          privacyEl.textContent = cfg.privacyText.trim();
+        }
+
         // 3. Brand Navbar (Logo + Nome Club)
         const brandText = document.querySelector('.brand-prenotazione > span:not(.brand-badge)');
         if (brandText && cfg.organizzazione && cfg.organizzazione.trim()) {
@@ -1240,6 +1260,19 @@
   })();
   </script>
   <script>
+  // Popola il testo di default della privacy se non ancora impostato da vespa_event_config
+  (function initDefaultPrivacyText() {
+    const el = document.getElementById('bookingPrivacyTextContent');
+    if (el && !el.textContent.trim()) {
+      el.textContent =
+        "INFORMATIVA SUL TRATTAMENTO DEI DATI PERSONALI (Art. 13 Regolamento UE 2016/679 - GDPR)\n\n" +
+        "1. Titolare del trattamento: Il Vespa Club organizzatore dell'evento, indicato nell'intestazione del modulo di prenotazione.\n" +
+        "2. Dati raccolti e finalità: I dati conferiti (cognome, nome, data di nascita, città di provenienza, email, telefono, Vespa Club di appartenenza, numeri di tessera VCI/Motornext, modello e anno del veicolo, taglia abbigliamento, eventuale ricevuta di pagamento e scelte di partecipazione) sono trattati esclusivamente per gestire l'iscrizione, il pagamento della quota, l'emissione del Pass QR Code, l'accredito, la consegna gadget/pasti e le classifiche del raduno.\n" +
+        "3. Modalità e conservazione: I dati sono trattati in formato elettronico su archivio locale e cloud protetto per il tempo necessario alla gestione dell'evento.\n" +
+        "4. Diritti dell'interessato: Puoi richiedere in qualsiasi momento accesso, rettifica o cancellazione dei tuoi dati contattando l'organizzatore.";
+    }
+  })();
+
   /**
    * Mostra o nasconde Modello Vespa e Anno Vespa in base al ruolo:
    * se PASSEGGERO, i due campi vengono nascosti e disabilitati.
