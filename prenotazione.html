@@ -474,13 +474,15 @@
             <!-- SEZIONE ALLEGATO RICEVUTA DI PAGAMENTO (BONIFICO) -->
             <div class="form-group full-width">
               <label for="provaPagamentoFile">📎 Allega Ricevuta di Pagamento (Bonifico Bancario)</label>
-              <div class="file-upload-area" id="fileDropArea" onclick="document.getElementById('provaPagamentoFile').click()">
-                <div class="file-upload-icon">📄</div>
-                <div style="font-weight:800; font-size:1.05rem; color:var(--vespa-blue);">
-                  Trascina qui la ricevuta o clicca per selezionare il file
-                </div>
-                <div style="font-size:0.85rem; color:var(--text-muted); margin-top:0.35rem;">
-                  Se hai già effettuato il bonifico, allega la contabile (PDF, JPG o PNG - Max 10 MB) per velocizzare la convalida
+              <div class="file-upload-area" id="fileDropArea" onclick="document.getElementById('provaPagamentoFile').click()" style="padding:0.45rem 0.85rem; max-width:340px; display:flex; align-items:center; gap:0.6rem; text-align:left;">
+                <div class="file-upload-icon" style="font-size:1.15rem; margin-bottom:0; flex-shrink:0;">📄</div>
+                <div>
+                  <div style="font-weight:800; font-size:0.85rem; color:var(--vespa-blue); line-height:1.2;">
+                    Trascina o clicca per allegare ricevuta
+                  </div>
+                  <div style="font-size:0.72rem; color:var(--text-muted); margin-top:0.15rem;">
+                    PDF, JPG o PNG (Max 10 MB)
+                  </div>
                 </div>
                 <input type="file" id="provaPagamentoFile" accept=".pdf,image/jpeg,image/png,image/jpg" style="display:none;">
               </div>
