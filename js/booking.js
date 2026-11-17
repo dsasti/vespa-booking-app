@@ -267,6 +267,13 @@ class VespaBookingForm {
         return;
       }
 
+      const privacyCb = document.getElementById('privacyConsentCheckbox');
+      if (privacyCb && !privacyCb.checked) {
+        window.app.showToast('⚠️ Devi confermare la presa visione dell\'Informativa sulla Privacy prima di inviare la prenotazione.', 'error');
+        privacyCb.focus();
+        return;
+      }
+
       // Controllo preventivo duplicati per lo stesso nome e cognome (ignora se stesso se in modifica)
       const allRegs = await window.vespaDB.getAllRegistrations();
       const duplicate = allRegs.find(r => 
@@ -403,4 +410,17 @@ class VespaBookingForm {
       this.isSubmitting = false;
       if (submitBtn) {
         submitBtn.disabled = false;
-        submitBtn.textContent = '🚀 Conferma e Invia
+        submitBtn.textContent = '🚀 Conferma e Invia Registrazione Online';
+        submitBtn.style.background = '';
+      }
+    }
+  }
+
+  submitRegistration() {
+    return this.submitForm();
+  }
+}
+
+window.vespaBookingForm = new VespaBookingForm();
+window.vespaBooking = window.vespaBookingForm;
+
