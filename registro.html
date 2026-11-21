@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Registro Incordature — Reparto Tennis</title>
+  <link rel="stylesheet" href="/css/style.css?v=2" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>🎾 Registro Incordature</h1>
+      <div class="subtitle">Gestione Clienti e Riparazioni Reparto Tennis</div>
+    </div>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button id="btnHome" class="btn btn-secondary btn-sm hidden">← Torna alla Ricerca</button>
+      <a href="/index.html" class="btn btn-secondary btn-sm" style="text-decoration:none;">🏠 Index</a>
+    </div>
+  </header>
+
+  <main class="container">
+    <aside id="sideStatsWidget" class="side-stats-widget">
+      <div class="stat-label">Clienti Registrati</div>
+      <div class="stat-value" id="totalClientsCount">0</div>
+      <hr style="border:none; border-top:1px solid var(--border); margin:14px 0;" />
+      <div class="stat-label">Clienti Attivi (<span id="activeClientsYear"></span>)</div>
+      <div class="stat-value" id="activeClientsCount">0</div>
+      <hr style="border:none; border-top:1px solid var(--border); margin:14px 0;" />
+      <button type="button" id="btnShowAllClients" class="btn btn-secondary btn-sm" style="width:100%;">📋 Tutti i Clienti</button>
+    </aside>
+
+    <!-- SEZIONE RICERCA (INDEX) -->
+    <section id="searchSection" class="card">
+      <div class="card-header">
+        <h2>Cerca Cliente</h2>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button id="btnShowAllClientsMain" class="btn btn-secondary btn-sm">📋 Elenco Clienti</button>
+          <button id="btnShowNewClient" class="btn btn-primary">+ Nuovo Cliente</button>
+        </div>
+      </div>
+      <div class="search-box">
+        <input
+          type="text"
+          id="searchInput"
+          class="search-input"
+          placeholder="Cerca per nome, cognome, telefono, racchetta, corde, note..."
+          autocomplete="off"
+        />
+      </div>
+      <div id="searchResults" class="results-list"></div>
+      <div id="searchEmpty" class="empty-state hidden">
+        <p>Nessun cliente trovato per "<strong id="searchQueryLabel"></strong>".</p>
+        <br />
+        <button id="btnRegisterFromSearch" class="btn btn-primary">Registra Nuovo Cliente</button>
+      </div>
+    </section>
+
+    <!-- SEZIONE NUOVO CLIENTE -->
+    <section id="newClientSection" class="card hidden">
+      <div class="card-header">
+        <h2>Scheda Registrazione Nuovo Cliente</h2>
+        <button id="btnCancelNew" class="btn btn-secondary btn-sm">Annulla</button>
+      </div>
+      <form id="newClientForm">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="newCognome">Cognome</label>
+            <input type="text" id="newCognome" />
+          </div>
+          <div class="form-group">
+            <label for="newNome">Nome</label>
+            <input type="text" id="newNome" />
+          </div>
+          <div class="form-group">
+            <label for="newTelefono">Telefono (opzionale)</label>
+            <input type="tel" id="newTelefono" placeholder="es. 3471234567" />
+          </div>
+          <div class="form-group">
+            <label for="newEmail">Email (opzionale)</label>
+            <input type="email" id="newEmail" placeholder="es. cliente@email.it" />
+          </div>
+
+          <div class="form-group full">
+            <label>Racchette Preferite</label>
+            <div id="newRacketsList" class="rackets-list"></div>
+            <div style="margin-top: 8px;">
+              <button type="button" id="btnAddNewRacket" class="btn btn-secondary btn-sm">+ Aggiungi Racchetta</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="newCordeV">Corde Verticali</label>
+            <input type="text" id="newCordeV" list="cordeDatalist" placeholder="Scegli o scrivi corda..." autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="newCordeO">Corde Orizzontali</label>
+            <input type="text" id="newCordeO" list="cordeDatalist" placeholder="Scegli o scrivi corda..." autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="newTensioneV">Tensione Verticali</label>
+            <input type="text" id="newTensioneV" list="tensioneDatalist" placeholder="es. 23 Kg" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="newTensioneO">Tensione Orizzontali</label>
+            <input type="text" id="newTensioneO" list="tensioneDatalist" placeholder="es. 22 Kg" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="newMetodo">Metodo di Lavoro (opzionale)</label>
+            <input type="text" id="newMetodo" list="metodiDatalist" value="ATW" placeholder="Scegli o scrivi metodo..." autocomplete="off" />
+          </div>
+          <div class="form-group" id="newLunghezzaSingleGroup">
+            <label for="newLunghezzaCorda">Lunghezza Corda (opzionale)</label>
+            <input type="text" id="newLunghezzaCorda" list="lunghezzaDatalist" placeholder="es. 10,5 mt" autocomplete="off" />
+          </div>
+          <div class="form-group hidden" id="newLunghezzaVGroup">
+            <label for="newLunghezzaV">Lunghezza Verticali</label>
+            <input type="text" id="newLunghezzaV" list="lunghezzaDatalist" placeholder="es. 6 mt" autocomplete="off" />
+          </div>
+          <div class="form-group hidden" id="newLunghezzaOGroup">
+            <label for="newLunghezzaO">Lunghezza Orizzontali</label>
+            <input type="text" id="newLunghezzaO" list="lunghezzaDatalist" placeholder="es. 5,5 mt" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="newColoreCorda">Colore Corda (opzionale)</label>
+            <input type="text" id="newColoreCorda" list="coloriDatalist" placeholder="Lascia vuoto se non serve" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="newPrezzo">Prezzo Default (€)</label>
+            <input type="number" step="0.01" min="0" id="newPrezzo" class="price-highlight" placeholder="es. 20.00" />
+          </div>
+          <div class="form-group full">
+            <label for="newNote">Note</label>
+            <textarea id="newNote" rows="2" placeholder="Note generali cliente, circolo, ecc."></textarea>
+          </div>
+          <div class="form-group full" style="display:flex; flex-direction:row; flex-wrap:wrap; gap:18px; align-items:center;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; text-transform:none; font-size:0.95rem;">
+              <input type="checkbox" id="newConvenzione" style="width:18px; height:18px;" />
+              <strong>Convenzione</strong> (Matassa 17 incordature comprensiva di manodopera + corda)
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; text-transform:none; font-size:0.95rem;">
+              <input type="checkbox" id="newCordaPropriaV" style="width:18px; height:18px;" />
+              <strong>Corda Propria Verticali</strong>
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; text-transform:none; font-size:0.95rem;">
+              <input type="checkbox" id="newCordaPropriaO" style="width:18px; height:18px;" />
+              <strong>Corda Propria Orizzontali</strong>
+            </label>
+          </div>
+        </div>
+
+        <div id="newConvenzioneBox" class="sub-card hidden">
+          <h3>Dettagli Convenzione (17 incordature)</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="newConvenzioneCorda">Tipo di Corda</label>
+              <input type="text" id="newConvenzioneCorda" placeholder="es. RPM BLAST 125" />
+            </div>
+            <div class="form-group">
+              <label for="newConvenzionePrezzo">Prezzo Convenzione (€)</label>
+              <input type="number" step="0.01" min="0" id="newConvenzionePrezzo" placeholder="es. 220.00" />
+            </div>
+          </div>
+        </div>
+
+        <div class="actions-bar">
+          <button type="submit" class="btn btn-primary">💾 Salva Cliente</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- SEZIONE SCHEDA CLIENTE ESISTENTE -->
+    <section id="clientDetailSection" class="hidden">
+      <div class="card">
+        <div class="card-header" id="toggleProfileHeader" style="cursor:pointer; user-select:none;">
+          <h2><span id="profileToggleIcon">▸</span> <span id="detailClientName">Nome Cliente</span></h2>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button id="btnCopyClientLink" class="btn btn-secondary btn-sm">🔗 Copia Link</button>
+            <button id="btnPrintClientPdf" class="btn btn-secondary btn-sm">📄 Stampa / PDF</button>
+            <button id="btnToggleEditClient" class="btn btn-secondary btn-sm">✏️ Modifica Dati</button>
+            <button id="btnDeleteClientKeepInc" class="btn btn-danger btn-sm">🗑️ Elimina Cliente</button>
+          </div>
+        </div>
+
+        <div id="clientProfileBody" class="hidden">
+          <!-- Vista Dati Cliente -->
+          <div id="clientInfoView" class="form-grid"></div>
+
+        <!-- Form Modifica Dati Cliente -->
+        <form id="editClientForm" class="hidden">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="editCognome">Cognome</label>
+              <input type="text" id="editCognome" />
+            </div>
+            <div class="form-group">
+              <label for="editNome">Nome</label>
+              <input type="text" id="editNome" />
+            </div>
+            <div class="form-group">
+              <label for="editTelefono">Telefono</label>
+              <input type="tel" id="editTelefono" />
+            </div>
+            <div class="form-group">
+              <label for="editEmail">Email</label>
+              <input type="email" id="editEmail" />
+            </div>
+            <div class="form-group full">
+              <label>Racchette Preferite</label>
+              <div id="editRacketsList" class="rackets-list"></div>
+              <div style="margin-top: 8px;">
+                <button type="button" id="btnAddEditRacket" class="btn btn-secondary btn-sm">+ Aggiungi Racchetta</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="editCordeV">Corde Verticali</label>
+              <input type="text" id="editCordeV" list="cordeDatalist" placeholder="Scegli o scrivi corda..." autocomplete="off" />
+            </div>
+            <div class="form-group">
+              <label for="editCordeO">Corde Orizzontali</label>
+              <input type="text" id="editCordeO" list="cordeDatalist" placeholder="Scegli o scrivi corda..." autocomplete="off" />
+            </div>
+            <div class="form-group">
+              <label for="editTensioneV">Tensione Verticali</label>
+              <input type="text" id="editTensioneV" list="tensioneDatalist" autocomplete="off" />
+            </div>
+            <div class="form-group">
+              <label for="editTensioneO">Tensione Orizzontali</label>
+              <input type="text" id="editTensioneO" list="tensioneDatalist" autocomplete="off" />
+            </div>
+            <div class="form-group">
+              <label for="editMetodo">Metodo di Lavoro</label>
+              <input type="text" id="editMetodo" list="metodiDatalist" placeholder="Scegli o scrivi metodo..." autocomplete="off" />
+            </div>
+            <div class="form-group" id="editLunghezzaSingleGroup">
+              <label for="editLunghezzaCorda">Lunghezza Corda (opzionale)</label>
+              <input type="text" id="editLunghezzaCorda" list="lunghezzaDatalist" placeholder="es. 10,5 mt" autocomplete="off" />
+            </div>
+            <div class="form-group hidden" id="editLunghezzaVGroup">
+              <label for="editLunghezzaV">Lunghezza Verticali</label>
+              <input type="text" id="editLunghezzaV" list="lunghezzaDatalist" placeholder="es. 6 mt" autocomplete="off" />
+            </div>
+            <div class="form-group hidden" id="editLunghezzaOGroup">
+              <label for="editLunghezzaO">Lunghezza Orizzontali</label>
+              <input type="text" id="editLunghezzaO" list="lunghezzaDatalist" placeholder="es. 5,5 mt" autocomplete="off" />
+            </div>
+            <div class="form-group">
+              <label for="editColoreCorda">Colore Corda (opzionale)</label>
+              <input type="text" id="editColoreCorda" list="coloriDatalist" placeholder="Lascia vuoto se non serve" autocomplete="off" />
+            </div>
+            <div class="form-group">
+              <label for="editPrezzo">Prezzo Default (€)</label>
+              <input type="number" step="0.01" min="0" id="editPrezzo" class="price-highlight" />
+            </div>
+            <div class="form-group full">
+              <label for="editNote">Note</label>
+              <textarea id="editNote" rows="2"></textarea>
+            </div>
+            <div class="form-group full" style="display:flex; flex-direction:row; flex-wrap:wrap; gap:18px; align-items:center;">
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer; text-transform:none; font-size:0.95rem;">
+                <input type="checkbox" id="editConvenzione" style="width:18px; height:18px;" />
+                <strong>Convenzione</strong> (Matassa 17 incordature comprensiva di manodopera + corda)
+              </label>
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer; text-transform:none; font-size:0.95rem;">
+                <input type="checkbox" id="editCordaPropriaV" style="width:18px; height:18px;" />
+                <strong>Corda Propria Verticali</strong>
+              </label>
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer; text-transform:none; font-size:0.95rem;">
+                <input type="checkbox" id="editCordaPropriaO" style="width:18px; height:18px;" />
+                <strong>Corda Propria Orizzontali</strong>
+              </label>
+            </div>
+          </div>
+          <div id="editConvenzioneBox" class="sub-card hidden">
+            <h3>Dettagli Convenzione (17 incordature)</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="editConvenzioneCorda">Tipo di Corda</label>
+                <input type="text" id="editConvenzioneCorda" />
+              </div>
+              <div class="form-group">
+                <label for="editConvenzionePrezzo">Prezzo Convenzione (€)</label>
+                <input type="number" step="0.01" min="0" id="editConvenzionePrezzo" />
+              </div>
+            </div>
+          </div>
+          <div class="actions-bar">
+            <button type="button" id="btnCancelEditClient" class="btn btn-secondary btn-sm">Annulla</button>
+            <button type="submit" class="btn btn-primary btn-sm">💾 Salva Modifiche</button>
+          </div>
+        </form>
+        </div>
+      </div>
+
+      <!-- AGGIUNGI NUOVA INCORDATURA -->
+      <div class="card">
+        <div class="card-header" id="toggleNewIncHeader" style="cursor:pointer; user-select:none;">
+          <h2><span id="newIncToggleIcon">▸</span> + Nuova Incordatura</h2>
+        </div>
+        <div id="newIncBody" class="hidden">
+        <div style="margin-bottom:14px; display:flex; justify-content:flex-end;">
+          <button type="button" id="btnPickPrevSetting" class="btn btn-secondary btn-sm">📋 Scegli da settaggi precedenti</button>
+        </div>
+        <form id="addIncordaturaForm">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="incDataGiorno">Data Incordatura (gg / mm / aaaa) *</label>
+              <div style="display:flex; gap:6px; align-items:center;">
+                <input type="number" id="incDataGiorno" min="1" max="31" placeholder="gg" style="width:62px;" required />
+                <span>/</span>
+                <input type="number" id="incDataMese" min="1" max="12" placeholder="mm" style="width:62px;" required />
+                <span>/</span>
+                <input type="number" id="incDataAnno" min="2000" max="2100" placeholder="aaaa" style="width:82px;" required />
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="incQuantita">Quantità</label>
+              <input type="number" id="incQuantita" min="1" value="1" style="max-width:90px;" />
+            </div>
+            <div class="form-group">
+              <label for="incRacchettaSelect">Racchetta Usata</label>
+              <select id="incRacchettaSelect"></select>
+            </div>
+            <div class="form-group hidden" id="incRacchettaCustomGroup">
+              <label for="incRacchettaCustom">Specifica Racchetta</label>
+              <input type="text" id="incRacchettaCustom" placeholder="Modello racchetta" />
+            </div>
+            <div class="form-group">
+              <label for="incCordeV">Corde Verticali</label>
+              <input type="text" id="incCordeV" list="cordeDatalist" placeholder="Scegli o scrivi corda..." autocomplete="off" />
+            </div>
+            <div class="form-group">
+              <label for="incCordeO">Corde Orizzontali</label>
+              <input type="text" id="incCordeO" list="cordeDatalist" placeholder="Scegli o scrivi corda..." autocomplete="off" />
+            </div>
+            <div class="form-group">
+              <label for="incTensioneV">Tensione Verticali</label>
+              <input type="text" id="incTensioneV" list="tensioneDatalist" autocomplete="off" />
+            </div>
+            <div class="form-group">
+              <label for="incTensioneO">Tensione Orizzontali</label>
+              <input type="text" id="incTensioneO" list="tensioneDatalist" autocomplete="off" />
+            </div>
+            <div class="form-group">
+              <label for="incMetodo">Metodo di Lavoro (opzionale)</label>
+              <input type="text" id="incMetodo" list="metodiDatalist" placeholder="Scegli o scrivi metodo..." autocomplete="off" />
+            </div>
+            <div class="form-group" id="incLunghezzaSingleGroup">
+              <label for="incLunghezzaCorda">Lunghezza Corda (opzionale)</label>
+              <input type="text" id="incLunghezzaCorda" list="lunghezzaDatalist" placeholder="es. 10,5 mt" autocomplete="off" />
+            </div>
+            <div class="form-group hidden" id="incLunghezzaVGroup">
+              <label for="incLunghezzaV">Lunghezza Verticali</label>
+              <input type="text" id="incLunghezzaV" list="lunghezzaDatalist" placeholder="es. 6 mt" autocomplete="off" />
+            </div>
+            <div class="form-group hidden" id="incLunghezzaOGroup">
+              <label for="incLunghezzaO">Lunghezza Orizzontali</label>
+              <input type="text" id="incLunghezzaO" list="lunghezzaDatalist" placeholder="es. 5,5 mt" autocomplete="off" />
+            </div>
+            <div class="form-group">
+              <label for="incColoreCorda">Colore Corda (opzionale)</label>
+              <input type="text" id="incColoreCorda" list="coloriDatalist" placeholder="Lascia vuoto se non serve" autocomplete="off" />
+            </div>
+            <div class="form-group">
+              <label for="incPrezzo">Prezzo (€ - lascia vuoto per default)</label>
+              <input type="number" step="0.01" min="0" id="incPrezzo" class="price-highlight" />
+            </div>
+            <div class="form-group full">
+              <label for="incNote">Note Incordatura (opzionale)</label>
+              <input type="text" id="incNote" placeholder="Annotazioni su questa specifica incordatura" />
+            </div>
+            <div class="form-group full" style="display:flex; flex-direction:row; flex-wrap:wrap; gap:18px; align-items:center;">
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer; text-transform:none; font-size:0.95rem;">
+                <input type="checkbox" id="incInConvenzione" style="width:18px; height:18px;" />
+                <strong>Incordatura effettuata in Convenzione</strong>
+              </label>
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer; text-transform:none; font-size:0.95rem;">
+                <input type="checkbox" id="incCordaPropriaV" style="width:18px; height:18px;" />
+                <strong>Corda Propria Verticali</strong>
+              </label>
+              <label style="display:flex; align-items:center; gap:8px; cursor:pointer; text-transform:none; font-size:0.95rem;">
+                <input type="checkbox" id="incCordaPropriaO" style="width:18px; height:18px;" />
+                <strong>Corda Propria Orizzontali</strong>
+              </label>
+            </div>
+          </div>
+          <div class="actions-bar">
+            <button type="submit" class="btn btn-primary">💾 Registra Incordatura</button>
+          </div>
+        </form>
+        </div>
+      </div>
+
+      <!-- RIEPILOGO E STATISTICHE -->
+      <div class="card">
+        <div class="card-header">
+          <h2>Riepilogo Incordature & Statistiche</h2>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-box">
+            <div class="stat-label">Spesa Totale</div>
+            <div class="stat-value" id="statSpesaTotale">€ 0,00</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Incordature <span id="statAnnoCorrente"></span></div>
+            <div class="stat-value" id="statIncordatureAnno">0</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Totale Incordature</div>
+            <div class="stat-value" id="statIncordatureTotali">0</div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Racchetta</th>
+                <th>Corde (V / O)</th>
+                <th>Tensione (V / O)</th>
+                <th>Prezzo</th>
+                <th>Note</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="incordatureTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="editIncModal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="card-header">
+        <h2>Modifica Incordatura</h2>
+        <button type="button" id="btnCloseEditIncModal" class="btn btn-secondary btn-sm">✕ Chiudi</button>
+      </div>
+      <form id="editIncForm">
+        <input type="hidden" id="editIncId" />
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="editIncData">Data Incordatura</label>
+            <input type="date" id="editIncData" />
+          </div>
+          <div class="form-group">
+            <label for="editIncRacchetta">Racchetta Usata</label>
+            <input type="text" id="editIncRacchetta" />
+          </div>
+          <div class="form-group">
+            <label for="editIncPrezzo">Prezzo (€)</label>
+            <input type="number" step="0.01" min="0" id="editIncPrezzo" class="price-highlight" />
+          </div>
+          <div class="form-group">
+            <label for="editIncCordeV">Corde Verticali</label>
+            <input type="text" id="editIncCordeV" list="cordeDatalist" placeholder="Scegli o scrivi corda..." autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="editIncCordeO">Corde Orizzontali</label>
+            <input type="text" id="editIncCordeO" list="cordeDatalist" placeholder="Scegli o scrivi corda..." autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="editIncColoreCorda">Colore Corda (opzionale)</label>
+            <input type="text" id="editIncColoreCorda" list="coloriDatalist" placeholder="Lascia vuoto se non serve" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="editIncLunghezzaCorda">Lunghezza Corda (opzionale)</label>
+            <input type="text" id="editIncLunghezzaCorda" list="lunghezzaDatalist" placeholder="es. 10,5 mt" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="editIncMetodo">Metodo di Lavoro</label>
+            <input type="text" id="editIncMetodo" list="metodiDatalist" placeholder="Scegli o scrivi metodo..." autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="editIncTensioneV">Tensione Verticali</label>
+            <input type="text" id="editIncTensioneV" list="tensioneDatalist" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="editIncTensioneO">Tensione Orizzontali</label>
+            <input type="text" id="editIncTensioneO" list="tensioneDatalist" autocomplete="off" />
+          </div>
+          <div class="form-group full">
+            <label for="editIncNote">Note Incordatura</label>
+            <input type="text" id="editIncNote" />
+          </div>
+          <div class="form-group full" style="display:flex; flex-direction:row; flex-wrap:wrap; gap:18px; align-items:center;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; text-transform:none; font-size:0.95rem;">
+              <input type="checkbox" id="editIncInConvenzione" style="width:18px; height:18px;" />
+              <strong>In Convenzione</strong>
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; text-transform:none; font-size:0.95rem;">
+              <input type="checkbox" id="editIncCordaPropriaV" style="width:18px; height:18px;" />
+              <strong>Corda Propria Verticali</strong>
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; text-transform:none; font-size:0.95rem;">
+              <input type="checkbox" id="editIncCordaPropriaO" style="width:18px; height:18px;" />
+              <strong>Corda Propria Orizzontali</strong>
+            </label>
+          </div>
+        </div>
+        <div class="actions-bar">
+          <button type="button" id="btnCancelEditInc" class="btn btn-secondary btn-sm">Annulla</button>
+          <button type="submit" class="btn btn-primary btn-sm">💾 Salva Modifiche</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="prevSettingsModal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="card-header">
+        <h2>Scegli un Settaggio Precedente</h2>
+        <button type="button" id="btnClosePrevSettings" class="btn btn-secondary btn-sm">✕ Chiudi</button>
+      </div>
+      <div id="prevSettingsList" class="results-list"></div>
+    </div>
+  </div>
+
+  <div id="addRacketModal" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width:520px;">
+      <div class="card-header">
+        <h2>Aggiungi Nuova Racchetta</h2>
+        <button type="button" id="btnCloseAddRacketModal" class="btn btn-secondary btn-sm">✕ Chiudi</button>
+      </div>
+      <form id="addRacketForm">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="modalRacketModel">Modello Racchetta *</label>
+            <input type="text" id="modalRacketModel" placeholder="es. Babolat Pure Aero" required />
+          </div>
+          <div class="form-group">
+            <label for="modalRacketPattern">Pattern</label>
+            <input type="text" id="modalRacketPattern" list="patternDatalist" placeholder="es. 16x19" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="modalRacketGrip">Misura Manico</label>
+            <input type="text" id="modalRacketGrip" list="manicoDatalist" placeholder="es. L2" autocomplete="off" />
+          </div>
+        </div>
+        <div class="actions-bar">
+          <button type="button" id="btnCancelAddRacket" class="btn btn-secondary btn-sm">Annulla</button>
+          <button type="submit" class="btn btn-primary btn-sm">💾 Salva Racchetta</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="duplicateClientModal" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width:520px;">
+      <div class="card-header">
+        <h2>⚠️ Cliente già presente</h2>
+        <button type="button" id="btnCloseDupModal" class="btn btn-secondary btn-sm">✕ Chiudi</button>
+      </div>
+      <p id="duplicateClientMsg" style="margin-bottom:18px; font-size:0.98rem;"></p>
+      <div class="actions-bar" style="justify-content:space-between; flex-wrap:wrap;">
+        <button type="button" id="btnGoToExistingClient" class="btn btn-primary btn-sm">👤 Vai alla scheda cliente</button>
+        <div style="display:flex; gap:8px;">
+          <button type="button" id="btnCancelDup" class="btn btn-secondary btn-sm">Annulla</button>
+          <button type="button" id="btnProceedNewClient" class="btn btn-secondary btn-sm">💾 Prosegui comunque</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="allClientsModal" class="modal-backdrop hidden">
+    <div class="modal-card" style="max-width:780px;">
+      <div class="card-header">
+        <h2>Elenco Clienti Registrati (<span id="allClientsModalCount">0</span>)</h2>
+        <button type="button" id="btnCloseAllClientsModal" class="btn btn-secondary btn-sm">✕ Chiudi</button>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:16px; align-items:center;">
+        <label style="font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">Ordine:</label>
+        <select id="allClientsSortSelect" style="padding:8px 12px; border-radius:8px; border:1.5px solid var(--border);">
+          <option value="asc">Cognome Nome (A → Z)</option>
+          <option value="desc">Cognome Nome (Z → A)</option>
+        </select>
+        <label style="font-size:0.8rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-left:8px;">Filtro (Ultimi 12 mesi):</label>
+        <select id="allClientsActivitySelect" style="padding:8px 12px; border-radius:8px; border:1.5px solid var(--border);">
+          <option value="all">Tutti i clienti</option>
+          <option value="active">Solo Attivi (ultimi 12 mesi)</option>
+          <option value="inactive">Solo Non Attivi (ultimi 12 mesi)</option>
+        </select>
+      </div>
+      <div id="allClientsModalList" class="results-list" style="max-height:60vh; overflow-y:auto;"></div>
+    </div>
+  </div>
+
+  <datalist id="cordeDatalist"></datalist>
+  <datalist id="patternDatalist">
+    <option value="16x19"></option>
+    <option value="18x20"></option>
+    <option value="16x18"></option>
+    <option value="16x20"></option>
+    <option value="18x19"></option>
+    <option value="18x16"></option>
+    <option value="14x16"></option>
+    <option value="16x15"></option>
+  </datalist>
+  <datalist id="coloriDatalist">
+    <option value="Nero"></option>
+    <option value="Bianco"></option>
+    <option value="Giallo"></option>
+    <option value="Giallo Fluo"></option>
+    <option value="Arancione"></option>
+    <option value="Rosso"></option>
+    <option value="Blu"></option>
+    <option value="Verde"></option>
+    <option value="Grigio / Argento"></option>
+    <option value="Oro"></option>
+    <option value="Trasparente / Naturale"></option>
+    <option value="Rosa"></option>
+    <option value="Viola"></option>
+  </datalist>
+  <datalist id="metodiDatalist">
+    <option value="ATW"></option>
+    <option value="4 nodi standard"></option>
+    <option value="2 nodi standard"></option>
+    <option value="1/2 ATW"></option>
+  </datalist>
+  <datalist id="lunghezzaDatalist"></datalist>
+  <datalist id="tensioneDatalist"></datalist>
+  <datalist id="manicoDatalist">
+    <option value="000"></option>
+    <option value="00"></option>
+    <option value="0"></option>
+    <option value="L1"></option>
+    <option value="L2"></option>
+    <option value="L3"></option>
+    <option value="L4"></option>
+    <option value="L5"></option>
+  </datalist>
+  <div id="toast" class="toast"></div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
